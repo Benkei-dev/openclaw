@@ -1,0 +1,23 @@
+[Unit]
+Description=MT4 ZMQ <-> HTTP Bridge für n8n
+Documentation=https://github.com/darwinex/dwxconnect
+After=network.target tailscaled.service
+Wants=tailscaled.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/mt4-bridge
+EnvironmentFile=/opt/mt4-bridge/.env
+ExecStart=/opt/mt4-bridge/venv/bin/python bridge.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mt4-bridge
+
+# Neustart bei Absturz, aber nicht bei manuell gestopptem Service
+RestartPreventExitStatus=0
+
+[Install]
+WantedBy=multi-user.target

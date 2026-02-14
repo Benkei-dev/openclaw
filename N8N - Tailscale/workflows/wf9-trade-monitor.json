@@ -1,0 +1,239 @@
+{
+  "name": "MT4 - 9 Trade Monitor",
+  "nodes": [
+    {
+      "id": "sched9",
+      "name": "Alle 2 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "minutes", "minutesInterval": 2 }
+          ]
+        }
+      }
+    },
+    {
+      "id": "http9_clear",
+      "name": "Buffer leeren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300],
+      "parameters": {
+        "method": "DELETE",
+        "url": "http://localhost:8765/mt4/buffer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http9_open",
+      "name": "GET_OPEN_TRADES senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/mt4/command",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"action\":\"GET_OPEN_TRADES\"}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wait9",
+      "name": "Warte 4s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [860, 300],
+      "parameters": {
+        "amount": 4,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "http9_resp",
+      "name": "Hole Open Trades",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8765/mt4/signals?limit=50&clear=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http9_market",
+      "name": "Aktuelle Preise",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8765/mt4/market?limit=20&clear=false",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code9_monitor",
+      "name": "Trade Management",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 300],
+      "parameters": {
+        "jsCode": "// ========== WF9 Trade Monitor ==========\n// Prüft offene Trades, berechnet P&L, managed SL/TP\n\nconst respNode = $('Hole Open Trades').first().json;\nconst mktNode = $('Aktuelle Preise').first().json;\nconst signals = respNode.signals || [];\n\n// --- Open Trades aus EA-Response parsen ---\nlet openTrades = [];\nfor (const s of signals) {\n  // DWX antwortet mit JSON: {_action: 'OPEN_TRADES', _trades: {...}}\n  if (s._action === 'OPEN_TRADES' && s._trades) {\n    for (const [ticket, trade] of Object.entries(s._trades)) {\n      openTrades.push({\n        ticket: parseInt(ticket),\n        symbol: trade._symbol,\n        type: trade._type, // 0=BUY, 1=SELL\n        lots: trade._lots,\n        openPrice: trade._open_price,\n        sl: trade._SL,\n        tp: trade._TP,\n        profit: trade._pnl,\n        openTime: trade._open_time,\n        magic: trade._magic,\n        comment: trade._comment || ''\n      });\n    }\n  }\n  // Alternative: trades direkt als Array\n  if (s.trades && Array.isArray(s.trades)) {\n    openTrades = openTrades.concat(s.trades);\n  }\n}\n\n// --- Aktuelle Preise ---\nconst market = mktNode.market || [];\nconst prices = {};\nfor (const tick of market) {\n  if (tick.symbol) {\n    prices[tick.symbol] = { bid: tick.bid, ask: tick.ask };\n  }\n}\n\nif (openTrades.length === 0) {\n  return [{ json: { action: 'NONE', message: 'Keine offenen Trades', tradeCount: 0, _skip: true } }];\n}\n\n// --- Für jeden Trade: Management-Logik ---\nconst actions = [];\n\nfor (const trade of openTrades) {\n  const p = prices[trade.symbol];\n  if (!p) continue;\n\n  const isBuy = trade.type === 0;\n  const currentPrice = isBuy ? p.bid : p.ask;  // Schließpreis\n  const entryPrice = trade.openPrice;\n  const sl = trade.sl;\n  const tp = trade.tp;\n\n  // P&L Berechnung\n  const priceDiff = isBuy ? (currentPrice - entryPrice) : (entryPrice - currentPrice);\n  const pnlPercent = (priceDiff / entryPrice) * 100;\n\n  // Distanzen\n  const totalMoveToTP = isBuy ? (tp - entryPrice) : (entryPrice - tp);\n  const currentMoveToTP = isBuy ? (currentPrice - entryPrice) : (entryPrice - currentPrice);\n  const progressToTP = totalMoveToTP > 0 ? (currentMoveToTP / totalMoveToTP) * 100 : 0;\n\n  // Check ob Trade durch WF8 eröffnet wurde\n  const isOurTrade = (trade.comment || '').startsWith('WF8_') || trade.magic === 0;\n\n  let action = { ticket: trade.ticket, symbol: trade.symbol, type: 'HOLD', trade, currentPrice, pnlPercent: Math.round(pnlPercent * 100) / 100, progressToTP: Math.round(progressToTP) };\n\n  // === Phase 1: +35% zu TP → SL auf Breakeven ===\n  if (progressToTP >= 35 && progressToTP < 70) {\n    const newSL = entryPrice + (isBuy ? 5 : -5);  // Knapp über/unter Entry\n    if ((isBuy && sl < entryPrice) || (!isBuy && sl > entryPrice)) {\n      action.type = 'MODIFY_SL_BREAKEVEN';\n      action.newSL = Math.round(newSL * 100) / 100;\n      action.newTP = tp;\n      action.reason = `Progress ${action.progressToTP}% → SL auf Breakeven`;\n    }\n  }\n\n  // === Phase 2: +70% zu TP → SL auf 50% Profit ===\n  if (progressToTP >= 70 && progressToTP < 100) {\n    const profitSL = isBuy ? (entryPrice + (currentMoveToTP * 0.5)) : (entryPrice - (currentMoveToTP * 0.5));\n    if ((isBuy && sl < profitSL - 10) || (!isBuy && sl > profitSL + 10)) {\n      action.type = 'MODIFY_SL_PROFIT';\n      action.newSL = Math.round(profitSL * 100) / 100;\n      action.newTP = tp;\n      action.reason = `Progress ${action.progressToTP}% → SL auf 50% Profit ($${action.newSL})`;\n    }\n  }\n\n  // === Phase 3: TP erreicht (>=95%) → 50% Position schließen ===\n  if (progressToTP >= 95) {\n    const halfLots = Math.round((trade.lots / 2) * 100) / 100;\n    if (halfLots >= 0.01) {\n      action.type = 'PARTIAL_CLOSE';\n      action.closeLots = halfLots;\n      action.remainLots = Math.round((trade.lots - halfLots) * 100) / 100;\n      action.newSL = entryPrice + (isBuy ? 10 : -10);  // SL auf Breakeven+\n      action.reason = `TP fast erreicht (${action.progressToTP}%) → 50% schließen, Rest trailing`;\n    }\n  }\n\n  // === Notfall: Trade im starken Verlust (>= -3%) ===\n  if (pnlPercent <= -3) {\n    action.type = 'ALERT_LOSS';\n    action.reason = `⚠️ Trade ${action.progressToTP}% im Verlust (${action.pnlPercent}%)`;\n  }\n\n  actions.push(action);\n}\n\n// --- Ergebnis ---\nconst modifications = actions.filter(a => a.type !== 'HOLD' && a.type !== 'NONE');\n\nreturn [{ json: {\n  action: modifications.length > 0 ? 'MANAGE' : 'MONITOR',\n  tradeCount: openTrades.length,\n  modifications,\n  allTrades: actions,\n  prices,\n  _skip: modifications.length === 0\n} }];"
+      }
+    },
+    {
+      "id": "if9_action",
+      "name": "Aktion noetig?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1740, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "version": 2 },
+          "conditions": [
+            {
+              "id": "c9a",
+              "leftValue": "={{ $json._skip }}",
+              "operator": { "type": "boolean", "operation": "false" },
+              "rightValue": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "code9_exec",
+      "name": "Aktionen ausfuehren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 200],
+      "parameters": {
+        "jsCode": "// Führt die berechneten Trade-Management-Aktionen aus\nconst data = $input.first().json;\nconst mods = data.modifications || [];\nconst TOKEN = '77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb';\nconst BASE = 'http://localhost:8765';\n\nconst results = [];\nlet messages = [];\n\nfor (const mod of mods) {\n  let body = null;\n  let actionDesc = '';\n\n  if (mod.type === 'MODIFY_SL_BREAKEVEN' || mod.type === 'MODIFY_SL_PROFIT') {\n    body = {\n      action: 'MODIFY_TRADE',\n      ticket: mod.ticket,\n      symbol: mod.symbol,\n      sl: mod.newSL,\n      tp: mod.newTP\n    };\n    actionDesc = `🔄 SL angepasst: #${mod.ticket} ${mod.symbol} → SL=$${mod.newSL}`;\n  }\n\n  if (mod.type === 'PARTIAL_CLOSE') {\n    body = {\n      action: 'CLOSE_TRADE',\n      ticket: mod.ticket,\n      symbol: mod.symbol,\n      volume: mod.closeLots\n    };\n    actionDesc = `💰 Teilschließung: #${mod.ticket} ${mod.symbol} ${mod.closeLots} Lots geschlossen`;\n  }\n\n  if (mod.type === 'ALERT_LOSS') {\n    actionDesc = `⚠️ WARNUNG: #${mod.ticket} ${mod.symbol} bei ${mod.pnlPercent}% Verlust!`;\n  }\n\n  if (body) {\n    try {\n      const resp = await fetch(`${BASE}/mt4/command`, {\n        method: 'POST',\n        headers: {\n          'Content-Type': 'application/json',\n          'Authorization': `Bearer ${TOKEN}`\n        },\n        body: JSON.stringify(body)\n      });\n      const r = await resp.json();\n      results.push({ ticket: mod.ticket, action: mod.type, status: 'sent', response: r });\n    } catch (e) {\n      results.push({ ticket: mod.ticket, action: mod.type, status: 'error', error: e.message });\n      actionDesc += ' (FEHLER: ' + e.message + ')';\n    }\n  }\n\n  if (actionDesc) messages.push(actionDesc);\n\n  // Nach Partial Close: SL anpassen\n  if (mod.type === 'PARTIAL_CLOSE' && mod.newSL) {\n    try {\n      const modBody = { action: 'MODIFY_TRADE', ticket: mod.ticket, symbol: mod.symbol, sl: mod.newSL, tp: mod.trade.tp };\n      await fetch(`${BASE}/mt4/command`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },\n        body: JSON.stringify(modBody)\n      });\n      messages.push(`🔄 Rest-SL auf Breakeven: #${mod.ticket} → $${mod.newSL}`);\n    } catch (e) { /* ignore */ }\n  }\n}\n\nconst telegramMsg = `📊 <b>Trade Monitor Update</b>\\n\\n` +\n  `Offene Trades: ${data.tradeCount}\\n` +\n  `Aktionen: ${mods.length}\\n\\n` +\n  messages.join('\\n') +\n  `\\n\\n<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\n\nreturn [{ json: {\n  results,\n  messages,\n  _telegramMsg: telegramMsg,\n  tradeCount: data.tradeCount,\n  actionCount: mods.length\n} }];"
+      }
+    },
+    {
+      "id": "tg9",
+      "name": "Monitor Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2180, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "lwOSLP3ylq10yEW4",
+          "name": "MT4 Telegram Bot"
+        }
+      },
+      "parameters": {
+        "chatId": "7268021157",
+        "text": "={{ $json._telegramMsg }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      }
+    },
+    {
+      "id": "gs9",
+      "name": "Monitor Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2180, 380],
+      "credentials": {
+        "googleApi": {
+          "id": "82cab318-1cf6-4071-a030-1535dfe88501",
+          "name": "Google Service Account Trading"
+        }
+      },
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g",
+          "mode": "id"
+        },
+        "sheetName": { "__rl": true, "value": "Monitor-Log", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ new Date().toISOString() }}",
+            "TradeCount": "={{ $json.tradeCount }}",
+            "Actions": "={{ $json.actionCount }}",
+            "Details": "={{ $json.messages ? $json.messages.join(' | ') : 'Monitoring' }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Alle 2 Minuten": {
+      "main": [[{ "node": "Buffer leeren", "type": "main", "index": 0 }]]
+    },
+    "Buffer leeren": {
+      "main": [[{ "node": "GET_OPEN_TRADES senden", "type": "main", "index": 0 }]]
+    },
+    "GET_OPEN_TRADES senden": {
+      "main": [[{ "node": "Warte 4s", "type": "main", "index": 0 }]]
+    },
+    "Warte 4s": {
+      "main": [[{ "node": "Hole Open Trades", "type": "main", "index": 0 }]]
+    },
+    "Hole Open Trades": {
+      "main": [[{ "node": "Aktuelle Preise", "type": "main", "index": 0 }]]
+    },
+    "Aktuelle Preise": {
+      "main": [[{ "node": "Trade Management", "type": "main", "index": 0 }]]
+    },
+    "Trade Management": {
+      "main": [[{ "node": "Aktion noetig?", "type": "main", "index": 0 }]]
+    },
+    "Aktion noetig?": {
+      "main": [
+        [{ "node": "Aktionen ausfuehren", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Aktionen ausfuehren": {
+      "main": [[
+        { "node": "Monitor Telegram", "type": "main", "index": 0 },
+        { "node": "Monitor Log", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

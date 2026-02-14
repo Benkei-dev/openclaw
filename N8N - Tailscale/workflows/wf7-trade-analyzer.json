@@ -1,0 +1,273 @@
+{
+  "name": "MT4 - 7 Trade Analyzer",
+  "nodes": [
+    {
+      "id": "sched7",
+      "name": "Alle 4 Stunden",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 */4 * * *" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "manual7",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 500]
+    },
+    {
+      "id": "merge7",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [440, 380],
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "empty"
+      }
+    },
+    {
+      "id": "http7_clear",
+      "name": "Signal Buffer leeren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 380],
+      "parameters": {
+        "method": "DELETE",
+        "url": "http://localhost:8765/mt4/buffer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http7_hist",
+      "name": "HIST BTCUSD M15 anfordern",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/mt4/command",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"action\":\"HIST\",\"symbol\":\"BTCUSD\",\"extra\":{\"timeframe\":\"15\",\"start\":\"2025.01.01 00:00:00\",\"end\":\"2030.01.01 00:00:00\"}}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wait7a",
+      "name": "Warte 8s Hist",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1080, 380],
+      "parameters": {
+        "amount": 8,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "http7_signals",
+      "name": "Hole Signal Buffer (HIST)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 380],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8765/mt4/signals?limit=100&clear=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http7_market",
+      "name": "Aktuelle Ticks holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1520, 380],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8765/mt4/market?limit=50&clear=false",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code7",
+      "name": "Technische Analyse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 380],
+      "parameters": {
+        "jsCode": "// ========== WF7 Trade Analyzer v3 ==========\n// Parst HIST-Daten (parsed + raw Format)\n// Berechnet EMA20/50, RSI14, ATR14 → Trade-Signal\n// Account-Info: Default-Balance da DWX ZMQ EA kein ACCOUNT_INFO hat\n\nconst DEMO_BALANCE = 100000;  // Capital.com Demo-Konto\nconst RISK_PCT = 0.05;  // 5% Risiko pro Trade\n\nconst histNode = $('Hole Signal Buffer (HIST)').first().json;\nconst mktNode  = $('Aktuelle Ticks holen').first().json;\n\n// --- HIST-Daten parsen ---\nlet candles = [];\nconst signals = histNode.signals || [];\n\nfor (const s of signals) {\n  // Format 1: Bridge hat Python-Dict via ast.literal_eval geparst\n  if (s._action === 'HIST' && s._data) {\n    const data = s._data;\n    if (typeof data === 'object' && !Array.isArray(data)) {\n      // Dict-Format: {'2026.01.24 05:00': {open:..., ...}, ...}\n      for (const [timeStr, bar] of Object.entries(data)) {\n        const ts = new Date(timeStr.replace(/\\./g, '-')).getTime() / 1000;\n        candles.push({ ts, o: bar.open, h: bar.high, l: bar.low, c: bar.close, v: bar.tick_volume || 0 });\n      }\n    } else if (Array.isArray(data)) {\n      // Array-Format: [{time:'...', open:..., ...}, ...]\n      for (const bar of data) {\n        const ts = bar.time ? new Date(bar.time.replace(/\\./g, '-')).getTime() / 1000 : 0;\n        candles.push({ ts, o: bar.open, h: bar.high, l: bar.low, c: bar.close, v: bar.tick_volume || 0 });\n      }\n    }\n  }\n  // Format 2: Raw String (falls Bridge-Parsing fehlschlägt)\n  if (s.raw && typeof s.raw === 'string' && s.raw.length > 100 && s.raw.includes('open')) {\n    try {\n      let jsonStr = s.raw.replace(/'/g, '\"').replace(/True/g, 'true').replace(/False/g, 'false').replace(/None/g, 'null');\n      const parsed = JSON.parse(jsonStr);\n      if (parsed._data) {\n        const data = parsed._data;\n        if (typeof data === 'object' && !Array.isArray(data)) {\n          for (const [timeStr, bar] of Object.entries(data)) {\n            const ts = new Date(timeStr.replace(/\\./g, '-')).getTime() / 1000;\n            candles.push({ ts, o: bar.open, h: bar.high, l: bar.low, c: bar.close, v: bar.tick_volume || 0 });\n          }\n        } else if (Array.isArray(data)) {\n          for (const bar of data) {\n            const ts = bar.time ? new Date(bar.time.replace(/\\./g, '-')).getTime() / 1000 : 0;\n            candles.push({ ts, o: bar.open, h: bar.high, l: bar.low, c: bar.close, v: bar.tick_volume || 0 });\n          }\n        }\n      }\n    } catch (e) { /* raw parsing failed */ }\n  }\n}\n\n// Sortieren + Deduplizieren\ncandles.sort((a, b) => a.ts - b.ts);\nconst seen = new Set();\ncandles = candles.filter(c => {\n  const key = c.ts + '_' + c.o;\n  if (seen.has(key)) return false;\n  seen.add(key);\n  return true;\n});\n\n// --- Aktuelle Ticks (BTCUSD) ---\nconst ticks = (mktNode.market || []).filter(t => t.symbol === 'BTCUSD');\nconst lastTick = ticks.length > 0 ? ticks[ticks.length - 1] : null;\nconst currentBid = lastTick ? lastTick.bid : (candles.length > 0 ? candles[candles.length-1].c : 0);\nconst currentAsk = lastTick ? lastTick.ask : currentBid;\nconst spread = currentAsk - currentBid;\n\nconst balance = DEMO_BALANCE;\n\nif (candles.length < 20 || currentBid === 0) {\n  return [{ json: {\n    signal: 'HOLD',\n    reason: `Nicht genug Daten: ${candles.length} Candles, Bid=${currentBid}`,\n    symbol: 'BTCUSD', balance,\n    currentBid, currentAsk, spread,\n    candleCount: candles.length,\n    _skip: true\n  }}];\n}\n\n// --- Indikatoren ---\nconst closes = candles.map(c => c.c);\nconst highs  = candles.map(c => c.h);\nconst lows   = candles.map(c => c.l);\n\nfunction ema(data, period) {\n  const k = 2 / (period + 1);\n  let result = [data[0]];\n  for (let i = 1; i < data.length; i++) {\n    result.push(data[i] * k + result[i-1] * (1 - k));\n  }\n  return result;\n}\n\nfunction rsi(data, period) {\n  let gains = [], losses = [];\n  for (let i = 1; i < data.length; i++) {\n    const diff = data[i] - data[i-1];\n    gains.push(diff > 0 ? diff : 0);\n    losses.push(diff < 0 ? -diff : 0);\n  }\n  if (gains.length < period) return 50;\n  let avgGain = gains.slice(0, period).reduce((a,b) => a+b, 0) / period;\n  let avgLoss = losses.slice(0, period).reduce((a,b) => a+b, 0) / period;\n  for (let i = period; i < gains.length; i++) {\n    avgGain = (avgGain * (period - 1) + gains[i]) / period;\n    avgLoss = (avgLoss * (period - 1) + losses[i]) / period;\n  }\n  if (avgLoss === 0) return 100;\n  return 100 - (100 / (1 + avgGain / avgLoss));\n}\n\nfunction atr(highs, lows, closes, period) {\n  let trs = [];\n  for (let i = 1; i < closes.length; i++) {\n    trs.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1])));\n  }\n  if (trs.length < period) return trs.reduce((a,b)=>a+b,0) / trs.length || 100;\n  let v = trs.slice(0, period).reduce((a,b) => a+b, 0) / period;\n  for (let i = period; i < trs.length; i++) v = (v * (period - 1) + trs[i]) / period;\n  return v;\n}\n\nconst ema20 = ema(closes, 20);\nconst ema50 = ema(closes, Math.min(50, closes.length));\nconst cEma20 = ema20[ema20.length - 1];\nconst cEma50 = ema50[ema50.length - 1];\nconst cRsi = rsi(closes, 14);\nconst cAtr = atr(highs, lows, closes, 14);\n\nconst emaTrend = cEma20 > cEma50 ? 'BULLISH' : 'BEARISH';\nconst above20 = currentBid > cEma20;\nconst above50 = currentBid > cEma50;\n\nlet signal = 'HOLD', reason = '', confidence = 0;\n\nif (emaTrend === 'BULLISH' && above20 && cRsi < 70 && cRsi > 35) {\n  signal = 'BUY'; confidence = 60;\n  reason = `EMA20>${cEma50.toFixed(0)} (Bullish), Preis ueber EMA20, RSI=${cRsi.toFixed(1)}`;\n  if (cRsi < 50) { confidence += 15; reason += ' +Dip'; }\n  if (above50) { confidence += 10; reason += ' +ueberEMA50'; }\n} else if (emaTrend === 'BEARISH' && !above20 && cRsi > 30 && cRsi < 65) {\n  signal = 'SELL'; confidence = 60;\n  reason = `EMA20<${cEma50.toFixed(0)} (Bearish), Preis unter EMA20, RSI=${cRsi.toFixed(1)}`;\n  if (cRsi > 50) { confidence += 15; reason += ' +Rally'; }\n  if (!above50) { confidence += 10; reason += ' +unterEMA50'; }\n} else {\n  reason = `Kein klares Signal: Trend=${emaTrend}, RSI=${cRsi.toFixed(1)}, ${above20?'ueber':'unter'}EMA20`;\n}\n\nconst riskAmount = balance * RISK_PCT;\nconst slDist = cAtr * 1.5;\nconst tpDist = cAtr * 2.5;\n\nlet entry, sl, tp;\nif (signal === 'BUY') { entry = currentAsk; sl = entry - slDist; tp = entry + tpDist; }\nelse if (signal === 'SELL') { entry = currentBid; sl = entry + slDist; tp = entry - tpDist; }\nelse { entry = currentBid; sl = 0; tp = 0; }\n\nlet lots = slDist > 0 ? Math.round((riskAmount / slDist) * 100) / 100 : 0.01;\nlots = Math.max(0.01, Math.min(lots, 1.0));\n\nreturn [{ json: {\n  signal, confidence, reason, symbol: 'BTCUSD',\n  direction: signal === 'BUY' ? 'LONG' : signal === 'SELL' ? 'SHORT' : 'NONE',\n  entryPrice: Math.round(entry * 100) / 100,\n  slPrice: Math.round(sl * 100) / 100,\n  tpPrice: Math.round(tp * 100) / 100,\n  slDistance: Math.round(slDist * 100) / 100,\n  tpDistance: Math.round(tpDist * 100) / 100,\n  lots, riskReward: slDist > 0 ? (tpDist / slDist).toFixed(2) : '0',\n  riskAmount: Math.round(riskAmount * 100) / 100,\n  balance,\n  currentBid, currentAsk, spread: Math.round(spread * 100) / 100,\n  ema20: Math.round(cEma20 * 100) / 100, ema50: Math.round(cEma50 * 100) / 100,\n  rsi: Math.round(cRsi * 10) / 10, atr: Math.round(cAtr * 100) / 100,\n  emaTrend, candleCount: candles.length,\n  lastCandleTime: candles.length > 0 ? new Date(candles[candles.length-1].ts * 1000).toISOString() : '',\n  analysisTime: new Date().toISOString(),\n  _skip: signal === 'HOLD'\n}}];"
+      }
+    },
+    {
+      "id": "if7",
+      "name": "Signal vorhanden?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1960, 380],
+      "parameters": {
+        "conditions": {
+          "options": { "version": 2 },
+          "conditions": [
+            {
+              "id": "c7a",
+              "leftValue": "={{ $json._skip }}",
+              "operator": { "type": "boolean", "operation": "false" },
+              "rightValue": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "code7_msg",
+      "name": "Telegram Nachricht",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2180, 280],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst dir = d.direction === 'LONG' ? '🟢 LONG' : '🔴 SHORT';\nconst emoji = d.signal === 'BUY' ? '📈' : '📉';\n\nlet msg = `${emoji} <b>Trade Analyse – ${d.symbol}</b>\\n\\n`;\nmsg += `<b>Signal: ${dir}</b> (Konfidenz: ${d.confidence}%)\\n\\n`;\nmsg += `📊 <b>Technische Daten:</b>\\n`;\nmsg += `• EMA20: $${d.ema20} | EMA50: $${d.ema50}\\n`;\nmsg += `• RSI(14): ${d.rsi} | ATR(14): $${d.atr}\\n`;\nmsg += `• Trend: ${d.emaTrend}\\n`;\nmsg += `• Candles: ${d.candleCount}\\n\\n`;\nmsg += `💰 <b>Trade Plan:</b>\\n`;\nmsg += `• Entry: $${d.entryPrice}\\n`;\nmsg += `• Stop Loss: $${d.slPrice} (-$${d.slDistance})\\n`;\nmsg += `• Take Profit: $${d.tpPrice} (+$${d.tpDistance})\\n`;\nmsg += `• R:R = 1:${d.riskReward}\\n`;\nmsg += `• Lots: ${d.lots} | Risiko: $${d.riskAmount}\\n\\n`;\nmsg += `💼 Balance: $${d.balance}\\n`;\nmsg += `Spread: $${d.spread}\\n\\n`;\nmsg += `<b>Grund:</b> ${d.reason}\\n\\n`;\nmsg += `<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\n\nreturn [{ json: { ...d, _telegramMsg: msg } }];"
+      }
+    },
+    {
+      "id": "tg7",
+      "name": "Analyse an Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2400, 280],
+      "credentials": {
+        "telegramApi": {
+          "id": "lwOSLP3ylq10yEW4",
+          "name": "MT4 Telegram Bot"
+        }
+      },
+      "parameters": {
+        "chatId": "7268021157",
+        "text": "={{ $json._telegramMsg }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      }
+    },
+    {
+      "id": "http7_exec",
+      "name": "Trade ausfuehren (WF8)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2620, 280],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/execute-trade",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ symbol: $json.symbol, direction: $json.signal, lots: $json.lots, entryPrice: $json.entryPrice, slPrice: $json.slPrice, tpPrice: $json.tpPrice, slDistance: $json.slDistance, tpDistance: $json.tpDistance, riskReward: $json.riskReward, riskAmount: $json.riskAmount, reason: $json.reason, confidence: $json.confidence, atr: $json.atr }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "code7_hold",
+      "name": "HOLD loggen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2180, 500],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst msg = `ℹ️ <b>Marktanalyse – ${d.symbol || 'BTCUSD'}</b>\\n\\nKein Trade-Signal.\\n${d.reason}\\n\\nBid: $${d.currentBid} | RSI: ${d.rsi || '?'}\\nEMA20: $${d.ema20 || '?'} | EMA50: $${d.ema50 || '?'}\\nCandles: ${d.candleCount}\\nBalance: $${d.balance}\\n\\n<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\nreturn [{ json: { ...d, _telegramMsg: msg } }];"
+      }
+    },
+    {
+      "id": "tg7_hold",
+      "name": "HOLD an Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2400, 500],
+      "credentials": {
+        "telegramApi": {
+          "id": "lwOSLP3ylq10yEW4",
+          "name": "MT4 Telegram Bot"
+        }
+      },
+      "parameters": {
+        "chatId": "7268021157",
+        "text": "={{ $json._telegramMsg }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      }
+    }
+  ],
+  "connections": {
+    "Alle 4 Stunden": {
+      "main": [[{ "node": "Merge Triggers", "type": "main", "index": 0 }]]
+    },
+    "Manual Trigger": {
+      "main": [[{ "node": "Merge Triggers", "type": "main", "index": 1 }]]
+    },
+    "Merge Triggers": {
+      "main": [[{ "node": "Signal Buffer leeren", "type": "main", "index": 0 }]]
+    },
+    "Signal Buffer leeren": {
+      "main": [[{ "node": "HIST BTCUSD M15 anfordern", "type": "main", "index": 0 }]]
+    },
+    "HIST BTCUSD M15 anfordern": {
+      "main": [[{ "node": "Warte 8s Hist", "type": "main", "index": 0 }]]
+    },
+    "Warte 8s Hist": {
+      "main": [[{ "node": "Hole Signal Buffer (HIST)", "type": "main", "index": 0 }]]
+    },
+    "Hole Signal Buffer (HIST)": {
+      "main": [[{ "node": "Aktuelle Ticks holen", "type": "main", "index": 0 }]]
+    },
+    "Aktuelle Ticks holen": {
+      "main": [[{ "node": "Technische Analyse", "type": "main", "index": 0 }]]
+    },
+    "Technische Analyse": {
+      "main": [[{ "node": "Signal vorhanden?", "type": "main", "index": 0 }]]
+    },
+    "Signal vorhanden?": {
+      "main": [
+        [{ "node": "Telegram Nachricht", "type": "main", "index": 0 }],
+        [{ "node": "HOLD loggen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Telegram Nachricht": {
+      "main": [[{ "node": "Analyse an Telegram", "type": "main", "index": 0 }]]
+    },
+    "Analyse an Telegram": {
+      "main": [[{ "node": "Trade ausfuehren (WF8)", "type": "main", "index": 0 }]]
+    },
+    "HOLD loggen": {
+      "main": [[{ "node": "HOLD an Telegram", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "name": "MT4 - 8 Trade Executor",
+  "nodes": [
+    {
+      "id": "wh8",
+      "name": "Webhook Execute Trade",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "parameters": {
+        "path": "execute-trade",
+        "responseMode": "lastNode",
+        "options": {},
+        "httpMethod": "POST"
+      },
+      "webhookId": "exec001"
+    },
+    {
+      "id": "code8_validate",
+      "name": "Trade validieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\n\n// Validierung\nconst errors = [];\nif (!d.symbol) errors.push('Symbol fehlt');\nif (!d.direction || !['BUY','SELL'].includes(d.direction)) errors.push('Richtung ungültig: ' + d.direction);\nif (!d.lots || d.lots <= 0) errors.push('Lot Size ungültig');\nif (!d.slPrice || d.slPrice <= 0) errors.push('Stop Loss fehlt');\nif (!d.tpPrice || d.tpPrice <= 0) errors.push('Take Profit fehlt');\n\nif (errors.length > 0) {\n  return [{ json: { valid: false, errors, _error: errors.join(', ') } }];\n}\n\n// DWX Command vorbereiten\nconst orderType = d.direction === 'BUY' ? 'BUY' : 'SELL';\nconst body = {\n  action: d.direction === 'BUY' ? 'BUY' : 'SELL',\n  symbol: d.symbol,\n  order_type: orderType,\n  volume: d.lots,\n  sl: d.slPrice,\n  tp: d.tpPrice,\n  comment: `WF8_${new Date().toISOString().slice(0,10)}`\n};\n\nreturn [{ json: {\n  valid: true,\n  commandBody: body,\n  ...d,\n  orderType,\n  timestamp: new Date().toISOString()\n} }];"
+      }
+    },
+    {
+      "id": "if8_valid",
+      "name": "Ist valide?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "version": 2 },
+          "conditions": [
+            {
+              "id": "c8a",
+              "leftValue": "={{ $json.valid }}",
+              "operator": { "type": "boolean", "operation": "true" },
+              "rightValue": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "http8_clear",
+      "name": "Signal Buffer leeren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 220],
+      "parameters": {
+        "method": "DELETE",
+        "url": "http://localhost:8765/mt4/buffer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http8_trade",
+      "name": "TRADE OPEN senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 220],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/mt4/command",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.commandBody) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "wait8",
+      "name": "Warte 5s Ausfuehrung",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1320, 220],
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "http8_resp",
+      "name": "Hole EA Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 220],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8765/mt4/signals?limit=10&clear=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code8_result",
+      "name": "Ergebnis auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 220],
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst trade = $('Trade validieren').first().json;\nconst signals = resp.signals || [];\n\nlet ticket = null;\nlet success = false;\nlet errorMsg = '';\nlet executionData = {};\n\nfor (const s of signals) {\n  if (s._action === 'EXECUTION' || s.action === 'EXECUTION' || s.ticket) {\n    ticket = s.ticket || s._ticket;\n    success = true;\n    executionData = s;\n    break;\n  }\n  if (s._action === 'ERROR' || s.error || s.error_message) {\n    errorMsg = s.error_message || s.error || 'Unbekannter Fehler';\n    break;\n  }\n}\n\nif (!success && !errorMsg) {\n  // Vielleicht kam die Antwort als JSON mit _response\n  for (const s of signals) {\n    if (s._response && s._response._ticket) {\n      ticket = s._response._ticket;\n      success = true;\n      executionData = s._response;\n      break;\n    }\n  }\n}\n\nconst dir = trade.direction === 'BUY' ? '🟢 LONG' : '🔴 SHORT';\nlet msg;\n\nif (success) {\n  msg = `✅ <b>Trade eröffnet!</b>\\n\\n`;\n  msg += `Ticket: #${ticket}\\n`;\n  msg += `${dir} ${trade.symbol} @ $${trade.entryPrice}\\n`;\n  msg += `Lots: ${trade.lots}\\n`;\n  msg += `SL: $${trade.slPrice} | TP: $${trade.tpPrice}\\n`;\n  msg += `R:R: 1:${trade.riskReward}\\n`;\n  msg += `Risiko: $${trade.riskAmount}\\n\\n`;\n  msg += `<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\n} else if (errorMsg) {\n  msg = `❌ <b>Trade fehlgeschlagen!</b>\\n\\n`;\n  msg += `${dir} ${trade.symbol}\\n`;\n  msg += `Fehler: ${errorMsg}\\n\\n`;\n  msg += `<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\n} else {\n  msg = `⚠️ <b>Trade Status unklar</b>\\n\\n`;\n  msg += `${dir} ${trade.symbol} gesendet, aber keine Bestätigung empfangen.\\n`;\n  msg += `Bitte in MT4 prüfen!\\n`;\n  msg += `Empfangene Signale: ${signals.length}\\n\\n`;\n  msg += `<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\n}\n\nreturn [{ json: {\n  success,\n  ticket,\n  errorMsg,\n  symbol: trade.symbol,\n  direction: trade.direction,\n  lots: trade.lots,\n  entryPrice: trade.entryPrice,\n  slPrice: trade.slPrice,\n  tpPrice: trade.tpPrice,\n  riskReward: trade.riskReward,\n  riskAmount: trade.riskAmount,\n  reason: trade.reason,\n  executionData,\n  signalCount: signals.length,\n  _telegramMsg: msg,\n  timestamp: new Date().toISOString()\n} }];"
+      }
+    },
+    {
+      "id": "tg8",
+      "name": "Telegram Bestaetigung",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1980, 140],
+      "credentials": {
+        "telegramApi": {
+          "id": "lwOSLP3ylq10yEW4",
+          "name": "MT4 Telegram Bot"
+        }
+      },
+      "parameters": {
+        "chatId": "7268021157",
+        "text": "={{ $json._telegramMsg }}",
+        "additionalFields": { "parse_mode": "HTML" }
+      }
+    },
+    {
+      "id": "gs8",
+      "name": "Trade in Sheets loggen",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1980, 320],
+      "credentials": {
+        "googleApi": {
+          "id": "82cab318-1cf6-4071-a030-1535dfe88501",
+          "name": "Google Service Account Trading"
+        }
+      },
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g",
+          "mode": "id"
+        },
+        "sheetName": { "__rl": true, "value": "Active-Trades", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Ticket": "={{ $json.ticket || 'PENDING' }}",
+            "Symbol": "={{ $json.symbol }}",
+            "Direction": "={{ $json.direction }}",
+            "Lots": "={{ $json.lots }}",
+            "Entry": "={{ $json.entryPrice }}",
+            "SL": "={{ $json.slPrice }}",
+            "TP": "={{ $json.tpPrice }}",
+            "RR": "={{ $json.riskReward }}",
+            "Risk_USD": "={{ $json.riskAmount }}",
+            "Status": "={{ $json.success ? 'OPEN' : 'FAILED' }}",
+            "Reason": "={{ $json.reason }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "tg8_err",
+      "name": "Fehler an Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [880, 420],
+      "credentials": {
+        "telegramApi": {
+          "id": "lwOSLP3ylq10yEW4",
+          "name": "MT4 Telegram Bot"
+        }
+      },
+      "parameters": {
+        "chatId": "7268021157",
+        "text": "=❌ <b>Trade Validierung fehlgeschlagen</b>\n\n{{ $json._error }}\n\n<i>{{ $now }}</i>",
+        "additionalFields": { "parse_mode": "HTML" }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Execute Trade": {
+      "main": [[{ "node": "Trade validieren", "type": "main", "index": 0 }]]
+    },
+    "Trade validieren": {
+      "main": [[{ "node": "Ist valide?", "type": "main", "index": 0 }]]
+    },
+    "Ist valide?": {
+      "main": [
+        [{ "node": "Signal Buffer leeren", "type": "main", "index": 0 }],
+        [{ "node": "Fehler an Telegram", "type": "main", "index": 0 }]
+      ]
+    },
+    "Signal Buffer leeren": {
+      "main": [[{ "node": "TRADE OPEN senden", "type": "main", "index": 0 }]]
+    },
+    "TRADE OPEN senden": {
+      "main": [[{ "node": "Warte 5s Ausfuehrung", "type": "main", "index": 0 }]]
+    },
+    "Warte 5s Ausfuehrung": {
+      "main": [[{ "node": "Hole EA Response", "type": "main", "index": 0 }]]
+    },
+    "Hole EA Response": {
+      "main": [[{ "node": "Ergebnis auswerten", "type": "main", "index": 0 }]]
+    },
+    "Ergebnis auswerten": {
+      "main": [[
+        { "node": "Telegram Bestaetigung", "type": "main", "index": 0 },
+        { "node": "Trade in Sheets loggen", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}
