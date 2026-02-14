@@ -335,7 +335,13 @@ export async function handleBlueBubblesWebhookRequest(
 
   const body = await readJsonBody(req, 1024 * 1024);
   if (!body.ok) {
-    res.statusCode = body.error === "payload too large" ? 413 : 400;
+    if (body.error === "payload too large") {
+      res.statusCode = 413;
+    } else if (body.error === "request body timeout") {
+      res.statusCode = 408;
+    } else {
+      res.statusCode = 400;
+    }
     res.end(body.error ?? "invalid payload");
     console.warn(`[bluebubbles] webhook rejected: ${body.error ?? "invalid payload"}`);
     return true;
@@ -477,6 +483,11 @@ export async function monitorBlueBubblesProvider(
   }).catch(() => null);
   if (serverInfo?.os_version) {
     runtime.log?.(`[${account.accountId}] BlueBubbles server macOS ${serverInfo.os_version}`);
+  }
+  if (typeof serverInfo?.private_api === "boolean") {
+    runtime.log?.(
+      `[${account.accountId}] BlueBubbles Private API ${serverInfo.private_api ? "enabled" : "disabled"}`,
+    );
   }
 
   const unregister = registerBlueBubblesWebhookTarget({
