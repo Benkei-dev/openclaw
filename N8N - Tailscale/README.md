@@ -29,10 +29,12 @@ Dieses Verzeichnis dokumentiert die Installation und Konfiguration von n8n auf e
 
 ## Dokumentation
 
+- **[SOT.md](./SOT.md) – Source of Truth** ← ZUERST LESEN (aktueller Status, Tasks, Bugs)
+- [Handoff Claude Code](./HANDOFF-CLAUDE-CODE.md) - Detaillierter Übergabe-Bericht
 - [Tailscale Installation](./TAILSCALE_SETUP.md) - Schritt-für-Schritt Tailscale-Installation auf VPS
 - [n8n Installation](./N8N_SETUP.md) - n8n-Installation und systemd-Service-Konfiguration
 - [Troubleshooting](./TROUBLESHOOTING.md) - Häufige Probleme und Lösungen
-- [ZMQ Bridge](./ZMQ_BRIDGE.md) - (TODO) ZMQ-Bridge-Implementierung für MT4-Anbindung
+- [ZMQ Bridge](./ZMQ_BRIDGE.md) - Bridge-Dokumentation (Python/FastAPI)
 
 ## Quick Start
 

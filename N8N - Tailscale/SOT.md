@@ -3,6 +3,16 @@
 > **JEDER CHAT / AGENT muss diese Datei ZUERST lesen und die Regeln befolgen.**
 > Referenz: Dieses File ist die einzige Wahrheitsquelle für den aktuellen Projektstatus.
 
+### Auto-Discovery (wie Agents diese Datei finden)
+
+| Agent | Automatisch? | Mechanismus |
+|-------|-------------|-------------|
+| Claude Code | ✅ JA | Liest `AGENTS.md` (= `CLAUDE.md`) beim Start → Verweis auf `N8N - Tailscale/SOT.md` |
+| Copilot Chat | ✅ JA | Liest `.github/copilot-instructions.md` beim Start → Verweis auf SOT.md |
+| ChatGPT | ❌ NEIN | **Boot-Message nötig** (Template siehe `## Chat-Rotation & Übergabe`) |
+
+> ⚠️ Bei ChatGPT: Memory-Feature nutzen und dort speichern: *"MT4 Trading Projekt: Immer zuerst N8N - Tailscale/SOT.md lesen."*
+
 ---
 
 ## Regeln für alle Agents
@@ -19,6 +29,7 @@
 10. **Backup vor Änderung:** Vor jeder Änderung an bridge.py oder Workflows: Backup anlegen.
 11. **Modell loggen:** Im Log IMMER das verwendete Modell angeben (z.B. `CC-OPUS`, `CC-HAIKU`).
 12. **Token-Schätzung:** Am Ende jedes Arbeitsblocks im Log schätzen: `~Nk tokens verbraucht`. Basis: Kurze Aufgabe ~5k, mittlere ~20k, komplexe ~50k+.
+13. **Chat-Rotation:** Vor dem Beenden eines Chats IMMER den Rotations-Ablauf (siehe `## Chat-Rotation & Übergabe`) befolgen. Kein Chat darf sterben ohne SOT.md-Update + Log-Eintrag.
 
 ### Agent-Kennungen
 
@@ -54,6 +65,98 @@
 - OpenClaw ist ein Messaging-Gateway – kein Task-Orchestrator
 - Die SOT.md + Git Methode ist robuster und hat keine zusätzlichen Dependencies
 - **Später möglich:** OpenClaw als erweiterter Telegram-Bot für Trade-Alerts (nach Phase 3)
+
+---
+
+## Chat-Rotation & Übergabe
+
+### Warum rotieren?
+Jeder Chat hat ein Token-Limit (Context Window). Je länger ein Chat läuft, desto:
+- teurer wird jede Nachricht (volles Context Window wird bei jeder Antwort abgerechnet)
+- unzuverlässiger werden die Antworten (Infos aus der Mitte gehen verloren)
+- höher das Risiko dass der Chat "vergisst" was er tun sollte
+
+### Wann rotieren?
+
+| Agent-Typ | Rotieren nach | Erkennungszeichen |
+|-----------|--------------|-------------------|
+| CC-OPUS | ~3-4 komplexe Tasks oder ~150k tokens | Antworten werden unpräziser, wiederholt sich |
+| CC-SONNET | ~5-6 mittlere Tasks oder ~120k tokens | Verliert Details, braucht Erinnerungen |
+| CC-HAIKU | ~8-10 einfache Tasks oder ~80k tokens | Schnell am Limit wegen kleinem Context |
+| CP-OPUS | ~200k tokens oder 1 Sitzung (Session) | Copilot rotiert automatisch bei neuem Chat |
+| CG | ~4-5 Recherche-Aufgaben | Fängt an Dinge zu halluzinieren |
+
+### Rotations-Ablauf (Checkliste)
+
+**VOR dem Beenden des alten Chats:**
+
+1. ✏️ **SOT.md aktualisieren**: Alle offenen Tasks auf aktuellem Stand, Log-Eintrag mit finaler Token-Schätzung
+2. 📝 **Übergabe-Notiz schreiben**: Falls etwas NICHT in Git/SOT.md steht → in `## Übergabe-Notizen` eintragen (siehe unten)
+3. 💾 **Git commit + push**: `SOT: rotation CC-OPUS session N abgeschlossen`
+4. 📋 **Chat archivieren**: Chat-Export speichern in `d:\GH\copilot-chat-archive\openclaw\`
+
+**BEIM Starten des neuen Chats:**
+
+5. 🚀 **Boot-Message** an den neuen Chat senden (Template unten)
+6. ✅ **Verifikation**: Der neue Chat bestätigt was er gelesen hat und welchen Task er als nächstes bearbeitet
+
+### Pre-Rotation-Check (vor Neustart ausführen)
+
+Bevor du einen Chat neustartest, prüfe diese 3 Dinge:
+
+**1. Offene Claims?** Suche nach `[~` in SOT.md:
+```
+Kein Agent darf einen offenen Claim haben außer dem Chat der gerade rotiert wird.
+Wenn ein anderer Agent noch [~AGENT] Claims hat → warte oder frage den Agent.
+```
+
+**2. Uncommitted changes?** Prüfe im Terminal:
+```bash
+cd d:\GH\openclaw && git status --short
+```
+Alle Änderungen müssen committed sein.
+
+**3. SOT.md aktuell?** Schnell-Check:
+- Sind alle erledigten Tasks auf `[x]`?
+- Ist der Log-Eintrag für die aktuelle Session vorhanden?
+- Stehen Übergabe-Notizen drin falls nötig?
+
+> **Tipp:** Sag dem Copilot/Claude einfach: **„Prüfe ob alle Chats fertig sind“** — er führt den Check dann für dich aus.
+
+### Boot-Message Template
+
+Beim Start eines neuen Chats diese Nachricht senden (Platzhalter anpassen):
+
+```
+Du arbeitest am MT4 Trading Automation Projekt.
+
+1. Lies zuerst: N8N - Tailscale/SOT.md (Source of Truth – dort steht ALLES)
+2. Deine Kennung: {CC-OPUS|CC-SONNET|CC-HAIKU}
+3. Dein nächster Task: {TASK-N aus SOT.md}
+4. Übergabe-Kontext: {siehe ## Übergabe-Notizen in SOT.md, oder "keiner"}
+
+Regeln: SOT.md lesen → Task claimen → arbeiten → SOT.md updaten → committen.
+```
+
+### Übergabe-Notizen
+
+> Hier trägt ein Chat **VOR seiner Rotation** alles ein, was der Nachfolger wissen muss
+> und noch NICHT in Git dokumentiert ist. Nach Übernahme durch den neuen Chat: Zeile löschen.
+
+| Datum | Agent | Notiz | Übernommen? |
+|-------|-------|-------|-------------|
+| 2026-02-15 | CP-OPUS | Demo-Trade offen: BUY 0.01 BTCUSD Ticket #14155371 @ $70,806.16. Trade läuft. Ggf. beobachten/schließen. | ❌ |
+| 2026-02-15 | CP-OPUS | llama-server lief auf Port 8765 und blockierte Bridge — wurde manuell gestoppt. Falls er wiederkommt: `kill $(lsof -ti:8765)` vor Bridge-Restart | ❌ |
+| 2026-02-15 | CP-OPUS | EA-Port-Naming ist intern vertauscht (PUSH_PORT→bindet als PULL). Ist jetzt korrekt. Nicht nochmal "fixen"! | ❌ |
+
+### Chat-Sitzungen (Tracking)
+
+> Jede Chat-Session wird hier protokolliert für Nachvollziehbarkeit.
+
+| # | Agent | Start | Ende | Tasks erledigt | ~Tokens | Archiv |
+|---|-------|-------|------|----------------|---------|--------|
+| 1 | CP-OPUS | 2026-02-14 19:00 | laufend | WF7-10, Bridge-Patch, SOT, HANDOFF | ~220k | — |
+| 2 | CC-HAIKU | 2026-02-15 07:00 | 07:45 | TASK-1,2,3,14,15, BUG-1,6 | ~85k | — |
 
 ---
 
@@ -111,7 +214,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-1 🔴 `CC-HAIKU`: DWX v2.0.1_RC8 Format via GitHub-Recherche dokumentiert: `TRADE;OPEN;type;symbol;price;sl;tp;comment;lots;magic;ticket`
 - [x] TASK-2 🔴 `CC-HAIKU`: `_build_dwx_command()` in bridge.py korrigiert (lots von Pos 6 → Pos 9)
 - [x] TASK-3 🟢 `CC-HAIKU`: TRACK_SYMBOLS in .env auf EURUSD;BTCUSD;GOLD;US100 gesetzt + Bridge restart
-- [ ] TASK-4 🟡 `CC-SONNET`: Demo-Trade testen (nur Mo-Fr wenn Markt offen)
+- [x] TASK-4 🟡 `CP-OPUS`: Demo-Trade LIVE getestet: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16 ✅
 
 ### Phase 2 – Workflows optimieren
 - [ ] TASK-5 🟡 `CC-SONNET`: WF1 Throttle einbauen oder Market-Push deaktivieren (Rate Limit fix)
@@ -128,7 +231,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 ### Housekeeping
 - [ ] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen (lokal: d:\GH\demo_trade.py etc., VPS: /tmp/test_*.py etc.)
 - [x] TASK-14 🟢 `CC-HAIKU`: bridge.py Repo mit ast-Patch + /mt4/raw Endpoint synchronisiert. Beide Patches in lokale Version integriert + deployed.
-- [~CC-HAIKU] TASK-15 🟢 `CC-HAIKU`: Git commit + push aller Änderungen
+- [x] TASK-15 🟢 `CC-HAIKU`: Git commit + push aller Änderungen (commit 6333378f8f)
 
 ---
 
@@ -143,7 +246,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 | 5 | EVwU9BzKSKXuitLL | Tagesreport | ✅ | ⬜ Nicht getestet |
 | 6 | 8KAXUPF2J9EHbFAN | News Monitor | ✅ | ⬜ Nicht getestet |
 | 7 | 1T0fMAYzQKf8yM6j | Trade Analyzer | ✅ | 🟡 Analyse OK, Trade-Exec scheitert |
-| 8 | CfULtpthxJXm3S25 | Trade Executor | ✅ | 🔴 TRADE-Format falsch |
+| 8 | CfULtpthxJXm3S25 | Trade Executor | ✅ | ✅ TRADE funktioniert (Ticket #14155371) |
 | 9 | 0bRXfI6yvP7yVjlm | Trade Monitor | ✅ | ⬜ Ungetestet |
 | 10 | Y1Z1WK5KInRXLlVY | Trade Journal | ✅ | ⬜ Ungetestet |
 
@@ -159,6 +262,8 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - ✅ WF7 → Telegram: Formatierte Analyse-Nachricht
 - ✅ Telegram Bot Connectivity
 - ✅ Tailscale VPN: 13ms Latenz VPS ↔ MT4-PC
+- ✅ TRADE OPEN: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16 (2026-02-15)
+- ✅ EA Ports: PUSH_PORT/PULL_PORT in EA-Inputs sind VERTAUSCHT vs Binding (normal für DWX EA!)
 
 ---
 
@@ -168,6 +273,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - **Bridge Restart**: Nach Restart verliert EA kurz die Verbindung. Market Buffer ist dann leer.
 - **Demo-Konto**: Capital.com Demo $100k. KEIN echtes Geld.
 - **DWX EA v2.0.1 RC8**: Unterstützt KEIN `ACCOUNT_INFO` und KEIN `OPEN_TRADES` via ZMQ.
+- **EA Port-Swap**: Die EA VERTAUSCHT intern PUSH_PORT und PULL_PORT! Input `PUSH_PORT=32768` bindet als `[PULL]` auf 32768. Das ist by-design. Bridge .env ist korrekt konfiguriert.
 - **bridge.py Repo vs VPS**: Repo-Version ist Referenz. VPS hat zusätzlich ast-Patch + /mt4/raw. Immer synchron halten!
 - **n8n API Key**: Gesetzt aber von v2.7.5 nicht erkannt (401). Workflows laufen über Webhooks.
 
@@ -192,4 +298,8 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 07:30 | CC-HAIKU | TASK-1/2: BUG-1 Fix: DWX TRADE-Format recherchiert (GitHub), _build_dwx_command() korrigiert (lots: Pos 6→9). Korrekt: TRADE;OPEN;type;symbol;price;sl;tp;comment;lots;magic;ticket | ~70k
 2026-02-15 07:35 | CC-HAIKU | TASK-3: BUG-6 Fix: TRACK_SYMBOLS=EURUSD;BTCUSD;GOLD;US100 in .env auf VPS gesetzt + Bridge restarted | ~5k
 2026-02-15 07:40 | CC-HAIKU | TASK-14: bridge.py Repo mit ast.literal_eval Patch + /mt4/raw Endpoint synchronisiert. Beide nun in lokaler Version + deployed auf VPS | ~10k
+2026-02-15 08:00 | CP-OPUS | Chat-Rotation-Konzept + Übergabe-Notizen + Session-Tracking zur SOT.md hinzugefügt | ~25k
+2026-02-15 08:30 | CP-OPUS | Auto-Discovery eingerichtet: AGENTS.md + .github/copilot-instructions.md → SOT.md Verweis | ~15k
+2026-02-15 09:10 | ST+CP-OPUS | EA Port-Conflict gefixt (PUSH_PORT war doppelt 32769). EA entfernt+neugeladen. llama-server von Port 8765 entfernt. | ~20k
+2026-02-15 09:13 | CP-OPUS | 🎉 ERSTER DEMO-TRADE: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16. Komplette Pipeline funktioniert! | ~15k
 ```

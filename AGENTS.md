@@ -173,7 +173,12 @@
   - launchd PATH is minimal; ensure the app’s launch agent PATH includes standard system paths plus your pnpm bin (typically `$HOME/Library/pnpm`) so `pnpm`/`openclaw` binaries resolve when invoked via `openclaw-mac`.
 - For manual `openclaw message send` messages that include `!`, use the heredoc pattern noted below to avoid the Bash tool’s escaping.
 - Release guardrails: do not change version numbers without operator’s explicit consent; always ask permission before running any npm publish/release step.
+## MT4 Trading Automation (N8N - Tailscale)
 
+- **Source of Truth:** `N8N - Tailscale/SOT.md` — lies diese Datei ZUERST wenn du an Trading-/n8n-/Bridge-Tasks arbeitest.
+- Trading-relevante Dateien: `N8N - Tailscale/` (Workflows, Bridge, Docs).
+- Claim-System für Tasks: siehe SOT.md Regeln.
+- Deine Agent-Kennung ergibt sich aus deinem Modell (CC-OPUS, CC-SONNET, CC-HAIKU).
 ## NPM + 1Password (publish/verify)
 
 - Use the 1password skill; all `op` commands must run inside a fresh tmux session.
