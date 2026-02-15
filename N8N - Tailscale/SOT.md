@@ -146,7 +146,7 @@ Regeln: SOT.md lesen → Task claimen → arbeiten → SOT.md updaten → commit
 | Datum | Agent | Notiz | Übernommen? |
 |-------|-------|-------|-------------|
 | 2026-02-15 | CP-OPUS | Demo-Trade offen: BUY 0.01 BTCUSD Ticket #14155371 @ $70,806.16. Trade läuft. Ggf. beobachten/schließen. | ❌ |
-| 2026-02-15 | CP-OPUS | llama-server lief auf Port 8765 und blockierte Bridge — wurde manuell gestoppt. Falls er wiederkommt: `kill $(lsof -ti:8765)` vor Bridge-Restart | ❌ |
+| 2026-02-15 | CP-OPUS | **Port-Konflikt 8765**: llama-server war für openclaw/n8n eingerichtet und lief auf Port 8765. Wurde manuell gestoppt weil MT4 Bridge denselben Port braucht. **Muss später gelöst werden**: entweder llama-server auf anderen Port (z.B. 8766) oder Bridge-Port ändern. Nicht llama-server einfach wieder auf 8765 starten! | ❌ |
 | 2026-02-15 | CP-OPUS | EA-Port-Naming ist intern vertauscht (PUSH_PORT→bindet als PULL). Ist jetzt korrekt. Nicht nochmal "fixen"! | ❌ |
 
 ### Chat-Sitzungen (Tracking)
@@ -218,7 +218,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 
 ### Phase 2 – Workflows optimieren
 - [x] TASK-5 🟡 `CC-SONNET`: Bridge Market-Push deaktiviert (PUSH_MARKET_TO_N8N=false). WF1 Rate Limiting gelöst. ✅
-- [ ] TASK-6 🟡 `CC-SONNET`: WF7 → Google Sheets: Analyse-Ergebnisse (RSI, EMA, ATR) in TA-Log schreiben
+- [x] TASK-6 🟡 `CC-SONNET`: WF7 TA-Log Append hinzugefügt. Nodes: Format TA-Log → TA-Log in Sheets. Schreibt: timestamp, symbol, RSI, EMA20, EMA50, ATR, trend, signal_score. Importiert. ✅
 - [ ] TASK-7 🟡 `CC-SONNET`: WF2 Signal-Daten korrekt extrahieren und in Trade-Log schreiben
 - [ ] TASK-8 🟡 `CC-SONNET`: WF2 Telegram-Nachricht mit Signal-Details formatieren
 
@@ -232,6 +232,9 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [ ] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen (lokal: d:\GH\demo_trade.py etc., VPS: /tmp/test_*.py etc.)
 - [x] TASK-14 🟢 `CC-HAIKU`: bridge.py Repo mit ast-Patch + /mt4/raw Endpoint synchronisiert. Beide Patches in lokale Version integriert + deployed.
 - [x] TASK-15 🟢 `CC-HAIKU`: Git commit + push aller Änderungen (commit 6333378f8f)
+
+### Später (nach Phase 3)
+- [ ] TASK-16 🟡 `tbd`: Port-Konflikt 8765 lösen: llama-server (openclaw/n8n KI-Modell) und MT4 Bridge teilen sich Port 8765. llama-server ist aktuell gestoppt. Lösung: llama-server auf Port 8766 umkonfigurieren ODER Bridge auf anderen Port legen. Dann beide Services parallel laufen lassen.
 
 ---
 
@@ -303,4 +306,5 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 09:10 | ST+CP-OPUS | EA Port-Conflict gefixt (PUSH_PORT war doppelt 32769). EA entfernt+neugeladen. llama-server von Port 8765 entfernt. | ~20k
 2026-02-15 09:13 | CP-OPUS | 🎉 ERSTER DEMO-TRADE: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16. Komplette Pipeline funktioniert! | ~15k
 2026-02-15 09:30 | CC-SONNET | TASK-5: Bridge PUSH_MARKET_TO_N8N=false (default) gesetzt. Market-Ticks werden nicht mehr zu n8n gepusht (verhindert Sheets Rate Limit in WF1). Bridge restartet + Health-Check OK. | ~25k
+2026-02-15 09:45 | CC-SONNET | TASK-6: WF7 JSON modifiziert: Format TA-Log + TA-Log in Sheets Nodes hinzugefügt. Routing: Tech.Analyse → Format → Append → Signal Check. Google Sheets Credential & TA-Log Tab konfiguriert. Zu n8n importiert. | ~30k
 ```
