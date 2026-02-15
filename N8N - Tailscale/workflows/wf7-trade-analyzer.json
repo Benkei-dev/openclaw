@@ -3,14 +3,14 @@
   "nodes": [
     {
       "id": "sched7",
-      "name": "Alle 4 Stunden",
+      "name": "Alle 15 Minuten",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
       "position": [200, 300],
       "parameters": {
         "rule": {
           "interval": [
-            { "field": "cronExpression", "expression": "0 */4 * * *" }
+            { "field": "cronExpression", "expression": "*/15 * * * *" }
           ]
         }
       }
@@ -170,7 +170,7 @@
           "conditions": [
             {
               "id": "c7a",
-              "leftValue": "={{ $json._skip }}",
+              "leftValue": "={{ $('Technische Analyse').first().json._skip }}",
               "operator": { "type": "boolean", "operation": "false" },
               "rightValue": ""
             }
@@ -185,7 +185,7 @@
       "typeVersion": 2,
       "position": [2180, 280],
       "parameters": {
-        "jsCode": "const d = $input.first().json;\nconst dir = d.direction === 'LONG' ? '🟢 LONG' : '🔴 SHORT';\nconst emoji = d.signal === 'BUY' ? '📈' : '📉';\n\nlet msg = `${emoji} <b>Trade Analyse – ${d.symbol}</b>\\n\\n`;\nmsg += `<b>Signal: ${dir}</b> (Konfidenz: ${d.confidence}%)\\n\\n`;\nmsg += `📊 <b>Technische Daten:</b>\\n`;\nmsg += `• EMA20: $${d.ema20} | EMA50: $${d.ema50}\\n`;\nmsg += `• RSI(14): ${d.rsi} | ATR(14): $${d.atr}\\n`;\nmsg += `• Trend: ${d.emaTrend}\\n`;\nmsg += `• Candles: ${d.candleCount}\\n\\n`;\nmsg += `💰 <b>Trade Plan:</b>\\n`;\nmsg += `• Entry: $${d.entryPrice}\\n`;\nmsg += `• Stop Loss: $${d.slPrice} (-$${d.slDistance})\\n`;\nmsg += `• Take Profit: $${d.tpPrice} (+$${d.tpDistance})\\n`;\nmsg += `• R:R = 1:${d.riskReward}\\n`;\nmsg += `• Lots: ${d.lots} | Risiko: $${d.riskAmount}\\n\\n`;\nmsg += `💼 Balance: $${d.balance}\\n`;\nmsg += `Spread: $${d.spread}\\n\\n`;\nmsg += `<b>Grund:</b> ${d.reason}\\n\\n`;\nmsg += `<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\n\nreturn [{ json: { ...d, _telegramMsg: msg } }];"
+        "jsCode": "const d = $('Technische Analyse').first().json;\nconst dir = d.direction === 'LONG' ? '🟢 LONG' : '🔴 SHORT';\nconst emoji = d.signal === 'BUY' ? '📈' : '📉';\n\nlet msg = `${emoji} <b>Trade Analyse – ${d.symbol}</b>\\n\\n`;\nmsg += `<b>Signal: ${dir}</b> (Konfidenz: ${d.confidence}%)\\n\\n`;\nmsg += `📊 <b>Technische Daten:</b>\\n`;\nmsg += `• EMA20: $${d.ema20} | EMA50: $${d.ema50}\\n`;\nmsg += `• RSI(14): ${d.rsi} | ATR(14): $${d.atr}\\n`;\nmsg += `• Trend: ${d.emaTrend}\\n`;\nmsg += `• Candles: ${d.candleCount}\\n\\n`;\nmsg += `💰 <b>Trade Plan:</b>\\n`;\nmsg += `• Entry: $${d.entryPrice}\\n`;\nmsg += `• Stop Loss: $${d.slPrice} (-$${d.slDistance})\\n`;\nmsg += `• Take Profit: $${d.tpPrice} (+$${d.tpDistance})\\n`;\nmsg += `• R:R = 1:${d.riskReward}\\n`;\nmsg += `• Lots: ${d.lots} | Risiko: $${d.riskAmount}\\n\\n`;\nmsg += `💼 Balance: $${d.balance}\\n`;\nmsg += `Spread: $${d.spread}\\n\\n`;\nmsg += `<b>Grund:</b> ${d.reason}\\n\\n`;\nmsg += `<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\n\nreturn [{ json: { ...d, _telegramMsg: msg } }];"
       }
     },
     {
@@ -217,7 +217,7 @@
         "url": "http://localhost:5678/webhook/execute-trade",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ symbol: $json.symbol, direction: $json.signal, lots: $json.lots, entryPrice: $json.entryPrice, slPrice: $json.slPrice, tpPrice: $json.tpPrice, slDistance: $json.slDistance, tpDistance: $json.tpDistance, riskReward: $json.riskReward, riskAmount: $json.riskAmount, reason: $json.reason, confidence: $json.confidence, atr: $json.atr }) }}",
+        "jsonBody": "={{ JSON.stringify({ symbol: $('Telegram Nachricht').first().json.symbol, direction: $('Telegram Nachricht').first().json.signal, lots: $('Telegram Nachricht').first().json.lots, entryPrice: $('Telegram Nachricht').first().json.entryPrice, slPrice: $('Telegram Nachricht').first().json.slPrice, tpPrice: $('Telegram Nachricht').first().json.tpPrice, slDistance: $('Telegram Nachricht').first().json.slDistance, tpDistance: $('Telegram Nachricht').first().json.tpDistance, riskReward: $('Telegram Nachricht').first().json.riskReward, riskAmount: $('Telegram Nachricht').first().json.riskAmount, reason: $('Telegram Nachricht').first().json.reason, confidence: $('Telegram Nachricht').first().json.confidence, atr: $('Telegram Nachricht').first().json.atr }) }}",
         "options": {}
       }
     },
@@ -228,7 +228,7 @@
       "typeVersion": 2,
       "position": [2180, 500],
       "parameters": {
-        "jsCode": "const d = $input.first().json;\nconst msg = `ℹ️ <b>Marktanalyse – ${d.symbol || 'BTCUSD'}</b>\\n\\nKein Trade-Signal.\\n${d.reason}\\n\\nBid: $${d.currentBid} | RSI: ${d.rsi || '?'}\\nEMA20: $${d.ema20 || '?'} | EMA50: $${d.ema50 || '?'}\\nCandles: ${d.candleCount}\\nBalance: $${d.balance}\\n\\n<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\nreturn [{ json: { ...d, _telegramMsg: msg } }];"
+        "jsCode": "const d = $('Technische Analyse').first().json;\nconst msg = `ℹ️ <b>Marktanalyse – ${d.symbol || 'BTCUSD'}</b>\\n\\nKein Trade-Signal.\\n${d.reason}\\n\\nBid: $${d.currentBid} | RSI: ${d.rsi || '?'}\\nEMA20: $${d.ema20 || '?'} | EMA50: $${d.ema50 || '?'}\\nCandles: ${d.candleCount}\\nBalance: $${d.balance}\\n\\n<i>${new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'})}</i>`;\nreturn [{ json: { ...d, _telegramMsg: msg } }];"
       }
     },
     {
@@ -251,7 +251,7 @@
     }
   ],
   "connections": {
-    "Alle 4 Stunden": {
+    "Alle 15 Minuten": {
       "main": [[{ "node": "Merge Triggers", "type": "main", "index": 0 }]]
     },
     "Manual Trigger": {

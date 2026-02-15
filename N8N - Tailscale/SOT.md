@@ -158,7 +158,8 @@ Regeln: SOT.md lesen → Task claimen → arbeiten → SOT.md updaten → commit
 | 1 | CP-OPUS | 2026-02-14 19:00 | 2026-02-15 13:39 | WF7-10, Bridge-Patch, SOT, HANDOFF, Port-Fix, Sheets-API, TASK-19 LIVE-TEST | ~290k | — |
 | 2 | CC-HAIKU | 2026-02-15 07:00 | 07:45 | TASK-1,2,3,14,15, BUG-1,6 | ~85k | — |
 | 3 | CC-SONNET | 2026-02-15 10:30 | 2026-02-15 13:40 | TASK-5,6,7,8,9,10,11, BUG-7,8,9 Fix, Workarounds | ~200k | — |
-| 4 | CC-HAIKU | 2026-02-15 13:00 | ⏳ laufend | TASK-12,13,16,17,18,19 | ~95k | — |
+| 4 | CC-HAIKU | 2026-02-15 13:00 | 2026-02-15 14:30 | TASK-12,13,16,17,18,19,20,24, BUG-1,6 Cleanup | ~110k | — |
+| 5 | CC-SONNET | 2026-02-15 14:30 | ⏳ laufend | TASK-23, BUG-2/3/4/5 | ~30k | — |
 
 ---
 
@@ -204,10 +205,10 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 > Status: `[ ]` = offen, `[~CC]` = Agent CC arbeitet daran, `[x]` = erledigt
 
 - [x] BUG-1: TRADE-Befehl Error 4051 – `_build_dwx_command()` Parameter-Reihenfolge korrigiert. Korrekt: `TRADE;OPEN;type;symbol;price;sl;tp;comment;lots;magic;ticket` (lots war an Pos 6, muss Pos 9 sein). Fix deployed + getestet (Markt WE geschlossen, Test Mo-Fr).
-- [ ] BUG-2: WF1 Google Sheets Rate Limiting – jeder Market-Tick wird in Sheets geschrieben → API-Limit. `PUSH_TO_N8N=true` flutet n8n.
-- [ ] BUG-3: TA-Log Spalten leer – Symbol="UNKNOWN", RSI/MACD/EMA alle leer. Indikatoren kommen aus WF7, nicht aus Ticks. WF7 muss Analyse-Ergebnisse in TA-Log schreiben.
-- [ ] BUG-4: Trade-Log nur "SIGNAL" – WF2 extrahiert keine Signal-Details. Nur Timestamp + Typ geloggt.
-- [ ] BUG-5: Telegram nur "MT4 Signal / Typ: SIGNAL" – WF2 formatiert keine Daten in die Nachricht.
+- [x] BUG-2: WF1 Google Sheets Rate Limiting – TASK-5 Fix: `PUSH_MARKET_TO_N8N=false` in .env gesetzt. Market-Ticks werden nicht mehr zu WF1 gepusht. Rate Limit damit beseitigt.
+- [x] BUG-3: TA-Log Spalten leer – TASK-23 Fix: WF7 hatte 2 Bugs: 1) TA-Log Nodes (Format TA-Log + TA-Log in Sheets) aus TASK-6 waren nie deployed. 2) IF-Node las GS-Output statt Analysis-Daten (`$json._skip` immer undefined). Fix deployed: Alle Nodes jetzt auf VPS, IF-Node + Code-Nodes referenzieren `$('Technische Analyse').first().json`. WF7 läuft alle 15min, schreibt bei jedem Lauf in TA-Log. ✅
+- [x] BUG-4: Trade-Log nur "SIGNAL" – TASK-7 Fix: WF2 Code-Node parst jetzt alle Signal-Felder (action, symbol, price, volume, sl, tp, ticket). Code deployed + verifiziert. Live-Verifikation bei EA-Restart erforderlich (EA aktuell down).
+- [x] BUG-5: Telegram nur "MT4 Signal / Typ: SIGNAL" – TASK-8 Fix: WF2 Telegram-Nachricht formatiert jetzt mit Emoji, Symbol, Preis, Volume, SL/TP, Ticket. Code deployed + verifiziert. Live-Verifikation bei EA-Restart erforderlich.
 - [x] BUG-6: TRACK_SYMBOLS=EURUSD statt BTCUSD – .env auf VPS auf `EURUSD;BTCUSD;GOLD;US100` gesetzt + Bridge restarted.
 - [x] BUG-7: 🔴 `CC-OPUS+CC-SONNET+CC-HAIKU` – `_build_dwx_command()` BUY/SELL SL/TP war hardcoded 0;0. Fix: `sl = payload.sl or 0` / `tp = payload.tp or 0` (bridge.py Zeile 271-274). Deployed auf VPS, Code-verified ✅, **LIVE-TEST BESTANDEN**: Ticket #14155612 BUY BTCUSD SL=$68337 TP=$69727 ✅ (Broker passt SL/TP auf Min-Distanz an, das ist normal).
 - [x] BUG-8: 🟡 `CC-SONNET` – WF9 GET_OPEN_TRADES nicht unterstützt. Workaround deployed: WF9 liest jetzt Active-Trades via Google Sheets `lookup(Status=OPEN)`. Trade-Management-Logik (Breakeven/Trailing/Partial-Close) läuft auf Basis von Sheets-Daten. Preis-Offset symbol-spezifisch (BTC=$50, GOLD=$2, FX=0.0005). Importiert + aktiviert. ✅
@@ -257,7 +258,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-20 🟢 `CC-HAIKU`: **WF4 Auth-Fix ✅ KOMPLETT**. Problem: WF4 HTTP-Node "Bridge Health" sendet GET ohne Auth-Header → Bridge gibt 401 → "offline" Telegram-Spam. GELÖST: Python-Skript via n8n SQLite Database direkt patched. Bridge Health Node jetzt mit Header: `Authorization: Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb`. n8n restartet + WF4 aktiv (status=1). Keine Telegram-Spam mehr. ✅
 - [ ] TASK-21 🟡 `CC-SONNET`: **WF4 Telegram Status-Summary**. Statt nur "offline" Alert: 5min Status-Report an Telegram mit: offene Trades (aus Active-Trades Sheet), PnL-Übersicht, Bridge-Stats. Nur senden wenn sich etwas ändert (Debounce).
 - [ ] TASK-22 🟡 `CC-SONNET`: **WF8 Telegram-Bestätigung (Testphase)**. Trade-Signal kommt → WF8 sendet Strategie-Summary an Telegram (Richtung, Symbol, SL/TP, R:R, Grund/Score) → User bestätigt per Inline-Keyboard (✅ Freigeben / ❌ Ablehnen / 🔧 Anpassen) → erst nach Bestätigung wird Trade ausgeführt. Nutzt Telegram `sendMessage` mit `reply_markup` InlineKeyboard + WF3 Telegram Commands als Callback-Handler.
-- [~CC-SONNET] TASK-23 🟡 `CC-SONNET`: **WF7 Trade Analyzer Trigger fixen + Analyse-Kette**. WF7 läuft NIE (0 Executions). Braucht Cron-Trigger (z.B. alle 15min). Flow: Cron → HIST-Daten von Bridge → Technische Analyse (RSI/EMA/ATR) → Signal-Score berechnen → wenn Score > Schwelle: WF8 per Webhook triggern mit Trade-Daten (Symbol, Direction, SL, TP, Lots, Score, Reason). TA-Log in Sheets schreiben.
+- [x] TASK-23 🟡 `CC-SONNET`: **WF7 Trade Analyzer Trigger fixen + Analyse-Kette ✅**. 5 Fixes: 1) Cron 4h→15min (`*/15 * * * *`). 2) TA-Log Nodes (Format+Sheets) auf VPS deployed (TASK-6 war lokal geblieben). 3) IF-Node: `$json._skip` → `$('Technische Analyse').first().json._skip`. 4) Telegram Nachricht + HOLD loggen: `$input` → `$('Technische Analyse').first().json`. 5) Trade ausfuehren (WF8): `$json.*` → `$('Telegram Nachricht').first().json.*`. Importiert + aktiviert auf VPS (ID: 1T0fMAYzQKf8yM6j). n8n restarted.
 - [x] TASK-24 🟢 `CC-HAIKU`: **WF6 News Monitor aktivieren ✅**. WF6 vollständig konfiguriert: Trigger (Cron: hourly Mon-Fri `0 * * * 1-5`), ForexFactory API, Filter High-Impact, Telegram Alert, Google Sheets (News-Log Tab mit Timestamp/Country/Title/Impact/Count). 0 Executions = Sonntag (nächster Run: Montag 00:00 UTC). Alles ready. ✅
 - [ ] TASK-25 🟡 `CC-SONNET`: **Google Sheets optimieren**. a) Neueste Daten oben einfügen (batchUpdate insertRows statt append). b) Bessere Spalten: Performance-Tab um PnL, Balance, Equity, Drawdown erweitern. c) Archiv-Mechanismus: Monatlich alte Daten in Archiv-Tab verschieben (Code-Node mit Sheets API).
 - [ ] TASK-26 🟢 `ST (manuell)`: **MT4 EA MaxOrders erhöhen**. In MT4 → Experten → DWX EA → Inputs → `MaxOrders` von 1 auf 5 oder 10 setzen. Ohne das kann nur 1 Trade gleichzeitig offen sein. Danach EA Chart-Fenster neuladen.
@@ -269,13 +270,13 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 
 | WF | n8n ID | Name | Aktiv | Zustand |
 |----|--------|------|-------|---------|
-| 1 | TsesAyfkGln2WH00 | Marktdaten Empfang & Log | ✅ | 🔴 Rate Limit + Symbol UNKNOWN |
-| 2 | 6DcFnzHicZOh0FxZ | Signal Empfang & Alert | ✅ | 🟡 Nur "SIGNAL", generische Telegram-Msg |
+| 1 | TsesAyfkGln2WH00 | Marktdaten Empfang & Log | ✅ | ✅ Rate Limit gefixt (PUSH_MARKET_TO_N8N=false, BUG-2) |
+| 2 | 6DcFnzHicZOh0FxZ | Signal Empfang & Alert | ✅ | ✅ Signal-Details + Telegram-Format OK (BUG-4/5). Live-Test bei EA-Restart. |
 | 3 | GjpBqxXZdHGGp218 | Telegram Commands | ❌ | ⬜ Nicht getestet |
 | 4 | 2a1wXTU56DD2s0Yc | Portfolio Monitor | ✅ | ✅ Läuft seit 15.02. 10:40 UTC stabil |
 | 5 | EVwU9BzKSKXuitLL | Tagesreport | ✅ | ⬜ Nicht getestet |
 | 6 | 8KAXUPF2J9EHbFAN | News Monitor | ✅ | ⬜ Nicht getestet |
-| 7 | 1T0fMAYzQKf8yM6j | Trade Analyzer | ✅ | 🟡 Analyse OK, Trade-Exec scheitert (BUG-7: SL/TP=0) |
+| 7 | 1T0fMAYzQKf8yM6j | Trade Analyzer | ✅ | ✅ Cron 15min, TA-Log deployed, IF-Fix, Daten-Ref-Fix (TASK-23) |
 | 8 | CfULtpthxJXm3S25 | Trade Executor | ✅ | ✅ TRADE funktioniert (Ticket #14155371) — BUG-7: kein SL/TP |
 | 9 | 0bRXfI6yvP7yVjlm | Trade Monitor | ✅ | ✅ BUG-8 gefixt: GS Active-Trades Lookup statt GET_OPEN_TRADES |
 | 10 | Y1Z1WK5KInRXLlVY | Trade Journal | ✅ | ✅ BUG-9 gefixt: Bridge-Stats statt GET_ACCOUNT_INFO |
@@ -357,4 +358,5 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 14:15 | CC-HAIKU | **CHAT ROTATION**: Session 1 (CP-OPUS), 3 (CC-SONNET) beendet. Session 4 (CC-HAIKU, diese) dokumentiert. Status: Phase 1-5 ✅ KOMPLETT (19 Tasks, 5 Bugs gefixt). Phase 6 (8 neue Tasks) geplant. TASK-20 (WF4 Auth-Fix) ist DRINGEND. | ~15k
 2026-02-15 14:20 | CC-HAIKU | **TASK-20 GELÖST**: WF4 Auth-Header Fix erfolgreich appliziert. Python-Skript via n8n SQLite Bridge Health Node direkt gepatched. Authorization-Header: `Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb`. n8n restartet, WF4 aktiv. Telegram-Spam aufgelöst. ✅ | ~10k
 2026-02-15 14:25 | CC-HAIKU | **TASK-24 WF6 News Monitor aktiviert ✅**: WF6 vollständig konfiguriert. Cron-Trigger (hourly Mon-Fri), ForexFactory API, High-Impact Filter, Telegram Alert, Google Sheets News-Log. 0 Executions = heute Sonntag (nächster Run: Montag 00:00 UTC). Ready to go. | ~8k
+2026-02-15 15:00 | CC-SONNET | **TASK-23 ✅ BUG-2/3/4/5 ✅**: WF7 5 Fixes deployed: 1) Cron 4h→15min. 2) TA-Log Nodes (TASK-6 war lokal, nie auf VPS). 3) IF-Node `$json._skip` → `$('Technische Analyse').first().json._skip`. 4) Telegram/HOLD Nodes: `$input` → `$('Technische Analyse').first().json`. 5) Trade ausfuehren: `$json.*` → `$('Telegram Nachricht').first().json.*`. VPS: n8n export→merge→import→sqlite3 activate→restart. BUG-2 closed (PUSH_MARKET_TO_N8N=false). BUG-3 closed (WF7 läuft jetzt, schreibt TA-Log). BUG-4/5 closed (WF2 Code korrekt, live-test pending EA). | ~30k
 ```
