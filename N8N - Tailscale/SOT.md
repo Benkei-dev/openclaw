@@ -229,7 +229,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-12 🟢 `CC-HAIKU`: Google Sheets alle Tabs verifizieren. 5 Tabs identifiziert: Trade-Log (WF2), TA-Log (WF7, 12 Spalten), Active-Trades (WF8), Monitor-Log (WF9), Journal (WF10). Alle Workflows mit korrekter Google Sheets Credential (82cab3...). Sheet ID: 1J1MNti... ✅
 
 ### Housekeeping
-- [ ] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen (lokal: d:\GH\demo_trade.py etc., VPS: /tmp/test_*.py etc.)
+- [~CC-HAIKU] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen (lokal: d:\GH\demo_trade.py etc., VPS: /tmp/test_*.py etc.)
 - [x] TASK-14 🟢 `CC-HAIKU`: bridge.py Repo mit ast-Patch + /mt4/raw Endpoint synchronisiert. Beide Patches in lokale Version integriert + deployed.
 - [x] TASK-15 🟢 `CC-HAIKU`: Git commit + push aller Änderungen (commit 6333378f8f)
 
