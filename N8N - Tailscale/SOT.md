@@ -243,7 +243,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-15 🟢 `CC-HAIKU`: Git commit + push aller Änderungen (commit 6333378f8f)
 
 ### Phase 4 – Cleanup & Port-Migration (CC-HAIKU)
-- [ ] TASK-16 🟢 `CC-HAIKU`: **llama-server Port-Migration 8765 → 11434**. Port 8765 bleibt bei MT4 Bridge. llama-server auf Port 11434 umkonfigurieren und wieder aktivieren. Dateien auf VPS ändern (alle `8765` → `11434`):
+- [~CC-HAIKU] TASK-16 🟢 `CC-HAIKU`: **llama-server Port-Migration 8765 → 11434**. Port 8765 bleibt bei MT4 Bridge. llama-server auf Port 11434 umkonfigurieren und wieder aktivieren. Dateien auf VPS ändern (alle `8765` → `11434`):
   1. `/etc/systemd/system/local-llm.service` → `--port 11434`
   2. `/opt/openclaw-llm-setup/config/local-llm-provider.json` → `baseUrl` + `endpoint` (2 Stellen)
   3. `/opt/openclaw-llm-setup/scripts/llm-metrics-collect.sh` Zeile 10
