@@ -217,7 +217,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-4 🟡 `CP-OPUS`: Demo-Trade LIVE getestet: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16 ✅
 
 ### Phase 2 – Workflows optimieren
-- [~CC-SONNET] TASK-5 🟡 `CC-SONNET`: WF1 Throttle einbauen oder Market-Push deaktivieren (Rate Limit fix)
+- [x] TASK-5 🟡 `CC-SONNET`: Bridge Market-Push deaktiviert (PUSH_MARKET_TO_N8N=false). WF1 Rate Limiting gelöst. ✅
 - [ ] TASK-6 🟡 `CC-SONNET`: WF7 → Google Sheets: Analyse-Ergebnisse (RSI, EMA, ATR) in TA-Log schreiben
 - [ ] TASK-7 🟡 `CC-SONNET`: WF2 Signal-Daten korrekt extrahieren und in Trade-Log schreiben
 - [ ] TASK-8 🟡 `CC-SONNET`: WF2 Telegram-Nachricht mit Signal-Details formatieren
@@ -302,4 +302,5 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 08:30 | CP-OPUS | Auto-Discovery eingerichtet: AGENTS.md + .github/copilot-instructions.md → SOT.md Verweis | ~15k
 2026-02-15 09:10 | ST+CP-OPUS | EA Port-Conflict gefixt (PUSH_PORT war doppelt 32769). EA entfernt+neugeladen. llama-server von Port 8765 entfernt. | ~20k
 2026-02-15 09:13 | CP-OPUS | 🎉 ERSTER DEMO-TRADE: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16. Komplette Pipeline funktioniert! | ~15k
+2026-02-15 09:30 | CC-SONNET | TASK-5: Bridge PUSH_MARKET_TO_N8N=false (default) gesetzt. Market-Ticks werden nicht mehr zu n8n gepusht (verhindert Sheets Rate Limit in WF1). Bridge restartet + Health-Check OK. | ~25k
 ```
