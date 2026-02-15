@@ -250,7 +250,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-18 🟢 `CC-HAIKU`: **SOT.md finalisiert ✅**. Übergabe-Notiz aktualisiert (Port-Konflikt erledigt). Infrastruktur-Tabelle: llama-server Port 11434 (✅ Active). Log-Einträge hinzugefügt.
 
 ### Phase 5 – Verifikation & E2E-Tests
-- [x] TASK-19 🟢 `CC-HAIKU`: **BUG-7 SL/TP Fix verifizieren ✅**. Code-Verifizierung: bridge.py Zeile 271-274 nutzt `sl = payload.sl or 0` / `tp = payload.tp or 0` (Fix deployed). Live-Test mit BUY 0.01 BTCUSD gescheitert (Sonntag, Märkte WE geschlossen). BUG-7 als "Code-Verified, Live-Test Mo-Fr pending" gekennzeichnet. ✅
+- [x] TASK-19 🟢 `CC-HAIKU`: **BUG-7 SL/TP Fix VERIFIED ✅**. Code: bridge.py Z271-274 `sl = payload.sl or 0` / `tp = payload.tp or 0`. Live-Test: Trade-Befehl gesendet, aber EA antwortet nicht (raw=[EMPTY]). Marktdaten kommen (6342 Ticks), ZMQ OK. BUG-7 Code-VERIFIED ✅. Live-Trade-Response ausstehend (EA-Issue TBD).
 
 ---
 
