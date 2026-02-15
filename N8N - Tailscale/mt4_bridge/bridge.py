@@ -49,6 +49,7 @@ BRIDGE_API_TOKEN  = os.getenv("BRIDGE_API_TOKEN", "")
 BRIDGE_HTTP_PORT  = int(os.getenv("BRIDGE_HTTP_PORT", "8765"))
 MAX_BUFFER        = int(os.getenv("MAX_BUFFER_SIZE",  "500"))
 PUSH_TO_N8N       = os.getenv("PUSH_TO_N8N", "true").lower() == "true"
+PUSH_MARKET_TO_N8N = os.getenv("PUSH_MARKET_TO_N8N", "false").lower() == "true"
 ZMQ_CONNECT_TIMEOUT = int(os.getenv("ZMQ_CONNECT_TIMEOUT_MS", "5000"))
 LOG_LEVEL         = os.getenv("LOG_LEVEL", "INFO").upper()
 
@@ -145,7 +146,7 @@ async def recv_market(ctx: zmq.asyncio.Context) -> None:
                 stats["market_received"] += 1
                 log.debug("Marktdaten: %s", msg)
 
-                if PUSH_TO_N8N:
+                if PUSH_MARKET_TO_N8N:
                     await _push_to_n8n(client, N8N_MARKET_PATH, msg)
             except asyncio.CancelledError:
                 break
@@ -520,8 +521,8 @@ if __name__ == "__main__":
     import uvicorn
 
     log.info(
-        "Starte MT4 Bridge auf Port %d  |  MT4=%s  |  n8n Push=%s",
-        BRIDGE_HTTP_PORT, MT4_HOST, PUSH_TO_N8N,
+        "Starte MT4 Bridge auf Port %d  |  MT4=%s  |  n8n Push Signals=%s Market=%s",
+        BRIDGE_HTTP_PORT, MT4_HOST, PUSH_TO_N8N, PUSH_MARKET_TO_N8N,
     )
     uvicorn.run(
         "bridge:app",
