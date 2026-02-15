@@ -157,7 +157,7 @@ Regeln: SOT.md lesen → Task claimen → arbeiten → SOT.md updaten → commit
 |---|-------|-------|------|----------------|---------|--------|
 | 1 | CP-OPUS | 2026-02-14 19:00 | laufend | WF7-10, Bridge-Patch, SOT, HANDOFF | ~220k | — |
 | 2 | CC-HAIKU | 2026-02-15 07:00 | 07:45 | TASK-1,2,3,14,15, BUG-1,6 | ~85k | — |
-| 3 | CC-SONNET | 2026-02-15 10:30 | laufend | TASK-5,6,7,8,9,10,11, BUG-7,8,9 | ~80k | — |
+| 3 | CC-SONNET | 2026-02-15 10:30 | laufend | TASK-5,6,7,8,9,10,11, BUG-7,8,9 Fix | ~145k | — |
 
 ---
 
@@ -208,9 +208,9 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [ ] BUG-4: Trade-Log nur "SIGNAL" – WF2 extrahiert keine Signal-Details. Nur Timestamp + Typ geloggt.
 - [ ] BUG-5: Telegram nur "MT4 Signal / Typ: SIGNAL" – WF2 formatiert keine Daten in die Nachricht.
 - [x] BUG-6: TRACK_SYMBOLS=EURUSD statt BTCUSD – .env auf VPS auf `EURUSD;BTCUSD;GOLD;US100` gesetzt + Bridge restarted.
-- [ ] BUG-7: 🔴 `HARD` `CC-OPUS` – `_build_dwx_command()` für BUY/SELL ignoriert `payload.sl` und `payload.tp` → Trades öffnen immer ohne SL/TP (sl=0, tp=0). Fix: In `_build_dwx_command()` bridge.py Zeile 270-272: `0;0` durch `{payload.sl or 0};{payload.tp or 0}` ersetzen.
-- [~CC-SONNET] BUG-8: 🟡 `MED` `CC-SONNET` – WF9 sendet `GET_OPEN_TRADES` an Bridge, aber DWX EA v2.0.1_RC8 unterstützt diesen Befehl NICHT. WF9 bekommt keine Trade-Liste → Trade-Management funktioniert nie. Workaround: Trades über n8n Active-Trades Sheet tracken (Daten aus WF8).
-- [~CC-SONNET] BUG-9: 🟡 `MED` `CC-SONNET` – WF10 sendet `GET_ACCOUNT_INFO` an Bridge, aber DWX EA v2.0.1_RC8 unterstützt diesen Befehl NICHT → Balance/Equity immer 0 im Journal. Workaround: Account-Info aus Google Sheets (letzter WF8 Trade-Eintrag) aggregieren.
+- [x] BUG-7: 🔴 `CC-OPUS+CC-SONNET` – `_build_dwx_command()` BUY/SELL SL/TP war hardcoded 0;0. Fix: `sl = payload.sl or 0` / `tp = payload.tp or 0` (bridge.py Zeile 271-274). Deployed auf VPS + Bridge restarted. ✅
+- [x] BUG-8: 🟡 `CC-SONNET` – WF9 GET_OPEN_TRADES nicht unterstützt. Workaround deployed: WF9 liest jetzt Active-Trades via Google Sheets `lookup(Status=OPEN)`. Trade-Management-Logik (Breakeven/Trailing/Partial-Close) läuft auf Basis von Sheets-Daten. Preis-Offset symbol-spezifisch (BTC=$50, GOLD=$2, FX=0.0005). Importiert + aktiviert. ✅
+- [x] BUG-9: 🟡 `CC-SONNET` – WF10 GET_ACCOUNT_INFO nicht unterstützt. Workaround deployed: WF10 ruft jetzt `GET /mt4/stats` (Bridge-Stats: Signale, Befehle, ZMQ-Status, Uptime). Daily-Journal zeigt Bridge-Status. Trade-closed-Webhook funktioniert weiter. Importiert + aktiviert. ✅
 
 ---
 
@@ -263,8 +263,8 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 | 6 | 8KAXUPF2J9EHbFAN | News Monitor | ✅ | ⬜ Nicht getestet |
 | 7 | 1T0fMAYzQKf8yM6j | Trade Analyzer | ✅ | 🟡 Analyse OK, Trade-Exec scheitert (BUG-7: SL/TP=0) |
 | 8 | CfULtpthxJXm3S25 | Trade Executor | ✅ | ✅ TRADE funktioniert (Ticket #14155371) — BUG-7: kein SL/TP |
-| 9 | 0bRXfI6yvP7yVjlm | Trade Monitor | ✅ | 🟡 Läuft seit 15.02. 12:12 UTC — BUG-8: GET_OPEN_TRADES Workaround nötig |
-| 10 | Y1Z1WK5KInRXLlVY | Trade Journal | ✅ | 🔴 BUG-9: GET_ACCOUNT_INFO nicht unterstützt → Balance=0 |
+| 9 | 0bRXfI6yvP7yVjlm | Trade Monitor | ✅ | ✅ BUG-8 gefixt: GS Active-Trades Lookup statt GET_OPEN_TRADES |
+| 10 | Y1Z1WK5KInRXLlVY | Trade Journal | ✅ | ✅ BUG-9 gefixt: Bridge-Stats statt GET_ACCOUNT_INFO |
 
 ---
 
@@ -334,4 +334,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 13:05 | CC-HAIKU | TASK-16: llama-server Port-Migration 8765→11434 erfolgreich. 9 Dateien aktualisiert (config, scripts, systemd service). systemctl daemon-reload, enable, start. Service ✅ ACTIVE auf Port 11434. Health-Check zeigt "Loading model" (normal). | ~20k
 2026-02-15 13:08 | CC-HAIKU | TASK-17: VPS /tmp/ aufgeräumt. Gelöscht: 3x sicherheitskritische Dateien (sa_key.json, cred_raw.txt, n8n-creds.json) + ~40 Diagnostik-Skripte (.py, .sh, .js, .json). /tmp/ clean. | ~10k
 2026-02-15 13:10 | CC-HAIKU | TASK-18: SOT.md finalisiert. Übergabe-Notiz "Port-Konflikt" als erledigt markiert. Infrastruktur-Tabelle: llama-server Zeile aktualisiert (Port 11434, ✅ Active). Log-Einträge für TASK-16/17/18 hinzugefügt. | ~8k
+2026-02-15 13:30 | CC-SONNET | BUG-8: WF9 umgebaut – GET_OPEN_TRADES durch GS-Lookup(Active-Trades, Status=OPEN) ersetzt. Trade-Management-Logik angepasst (symbol-spez. Offsets). Importiert via n8n CLI, aktiviert via sqlite3. ✅ | ~35k
+2026-02-15 13:35 | CC-SONNET | BUG-9: WF10 umgebaut – GET_ACCOUNT_INFO durch Bridge-Stats(GET /mt4/stats) ersetzt. Daily-Journal zeigt ZMQ-Status, Uptime, Signale, Befehle. Trade-closed-Webhook bleibt erhalten. Importiert + aktiviert. ✅ | ~10k
+2026-02-15 13:40 | CC-SONNET | BUG-7: bridge.py BUG-7 Fix von CP-OPUS übernommen + auf VPS deployed. sl/tp werden jetzt korrekt übergeben. Bridge restarted + Health-Check OK. ✅ | ~5k
 ```

@@ -1,4 +1,5 @@
 {
+  "id": "Y1Z1WK5KInRXLlVY",
   "name": "MT4 - 10 Trade Journal",
   "nodes": [
     {
@@ -6,7 +7,7 @@
       "name": "Webhook Trade Closed",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 300],
+      "position": [200, 280],
       "parameters": {
         "path": "trade-closed",
         "responseMode": "onReceived",
@@ -20,12 +21,10 @@
       "name": "Taeglich 22 Uhr",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [200, 500],
+      "position": [200, 480],
       "parameters": {
         "rule": {
-          "interval": [
-            { "field": "cronExpression", "expression": "0 22 * * *" }
-          ]
+          "interval": [{ "field": "cronExpression", "expression": "0 22 * * *" }]
         }
       }
     },
@@ -34,71 +33,21 @@
       "name": "Merge",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [440, 380],
+      "position": [440, 360],
       "parameters": {
         "mode": "chooseBranch",
         "output": "empty"
       }
     },
     {
-      "id": "http10_clear",
-      "name": "Buffer leeren",
+      "id": "http10_stats",
+      "name": "Bridge Stats holen",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [660, 380],
-      "parameters": {
-        "method": "DELETE",
-        "url": "http://localhost:8765/mt4/buffer",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "http10_acct",
-      "name": "Account Info holen",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [880, 380],
-      "parameters": {
-        "method": "POST",
-        "url": "http://localhost:8765/mt4/command",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "Bearer 77cc86eaebae04682516f8f781069d14c3d3d46ba95a28cb" }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\"action\":\"GET_ACCOUNT_INFO\"}",
-        "options": {}
-      }
-    },
-    {
-      "id": "wait10",
-      "name": "Warte 3s",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [1100, 380],
-      "parameters": {
-        "amount": 3,
-        "unit": "seconds"
-      }
-    },
-    {
-      "id": "http10_resp",
-      "name": "Hole Account",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1320, 380],
+      "position": [660, 360],
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:8765/mt4/signals?limit=10&clear=true",
+        "url": "http://localhost:8765/mt4/stats",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -113,9 +62,9 @@
       "name": "Journal erstellen",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1540, 380],
+      "position": [880, 360],
       "parameters": {
-        "jsCode": "// ========== WF10 Trade Journal ==========\nconst webhookData = $('Webhook Trade Closed')?.first()?.json || null;\nconst acctResp = $('Hole Account').first().json;\nconst signals = acctResp.signals || [];\n\n// Account Info\nlet balance = 0, equity = 0, profit = 0;\nfor (const s of signals) {\n  if (s._action === 'GET_ACCOUNT_INFO' || s.balance) {\n    balance = s.balance || s._balance || 0;\n    equity = s.equity || s._equity || 0;\n    profit = s.profit || s._profit || 0;\n  }\n}\n\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' });\nconst timeStr = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' });\n\nlet msg = '';\n\nif (webhookData && webhookData.ticket) {\n  // Einzelner Trade geschlossen\n  const d = webhookData;\n  const pnl = d.profit || d.pnl || 0;\n  const emoji = pnl >= 0 ? '💰' : '📉';\n  const duration = d.duration || 'unbekannt';\n\n  msg = `${emoji} <b>Trade geschlossen</b>\\n\\n`;\n  msg += `Ticket: #${d.ticket}\\n`;\n  msg += `Symbol: ${d.symbol} ${d.direction || ''}\\n`;\n  msg += `Entry: $${d.entryPrice || '?'} → Exit: $${d.exitPrice || '?'}\\n`;\n  msg += `P&L: $${pnl}\\n`;\n  msg += `Dauer: ${duration}\\n\\n`;\n  msg += `💼 Account: $${balance} (Equity: $${equity})\\n`;\n  msg += `\\n<i>${dateStr} ${timeStr}</i>`;\n\n  return [{ json: {\n    type: 'TRADE_CLOSED',\n    ...d,\n    balance, equity,\n    _telegramMsg: msg,\n    _sheetData: {\n      Timestamp: now.toISOString(),\n      Ticket: d.ticket,\n      Symbol: d.symbol,\n      Direction: d.direction || '',\n      Entry: d.entryPrice || '',\n      Exit: d.exitPrice || '',\n      PnL: pnl,\n      Duration: duration,\n      Balance_After: balance,\n      Reason: d.reason || 'Monitor/SL/TP'\n    }\n  } }];\n}\n\n// Täglicher Journal-Eintrag\nmsg = `📋 <b>Trading Journal – ${dateStr}</b>\\n\\n`;\nmsg += `💼 <b>Account Status:</b>\\n`;\nmsg += `• Balance: $${balance}\\n`;\nmsg += `• Equity: $${equity}\\n`;\nmsg += `• Floating P&L: $${profit}\\n\\n`;\nmsg += `<i>${timeStr}</i>`;\n\nreturn [{ json: {\n  type: 'DAILY_JOURNAL',\n  balance, equity, profit,\n  date: dateStr,\n  _telegramMsg: msg,\n  _sheetData: {\n    Timestamp: now.toISOString(),\n    Ticket: 'DAILY',\n    Symbol: '-',\n    Direction: '-',\n    Entry: '-',\n    Exit: '-',\n    PnL: profit,\n    Duration: '-',\n    Balance_After: balance,\n    Reason: 'Tages-Journal'\n  }\n} }];"
+        "jsCode": "// ========== WF10 Trade Journal ==========\n// BUG-9 Workaround: Bridge-Stats statt GET_ACCOUNT_INFO (nicht in DWX v2.0.1_RC8)\n\n// Webhook-Daten (wenn Trade geschlossen wurde)\nlet webhookData = null;\ntry { webhookData = $('Webhook Trade Closed').first().json; } catch(e) {}\n\n// Bridge-Stats (immer verfügbar)\nconst stats = $input.first().json;\n\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('de-DE', {\n  weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',\n  timeZone: 'Europe/Berlin'\n});\nconst timeStr = now.toLocaleTimeString('de-DE', {\n  hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin'\n});\n\nlet msg = '';\nlet sheetData = {};\n\nif (webhookData && webhookData.ticket) {\n  // === Trade geschlossen (via Webhook) ===\n  const d = webhookData;\n  const pnl = parseFloat(d.profit) || parseFloat(d.pnl) || 0;\n  const emoji = pnl >= 0 ? '💰' : '📉';\n\n  msg = emoji + ' <b>Trade geschlossen</b>\\n\\n';\n  msg += 'Ticket: #' + d.ticket + '\\n';\n  msg += 'Symbol: ' + d.symbol + ' ' + (d.direction || '') + '\\n';\n  msg += 'Entry: $' + (d.entryPrice || '?') + ' → Exit: $' + (d.exitPrice || '?') + '\\n';\n  msg += 'P&L: $' + pnl + '\\n';\n  if (d.duration) msg += 'Dauer: ' + d.duration + '\\n';\n  msg += '\\n📊 Bridge: ' + (stats.signals_received || 0) + ' Signale | ' + (stats.commands_sent || 0) + ' Befehle\\n';\n  msg += '\\n<i>' + dateStr + ' ' + timeStr + '</i>';\n\n  sheetData = {\n    Timestamp: now.toISOString(),\n    Ticket: d.ticket,\n    Symbol: d.symbol,\n    Direction: d.direction || '',\n    Entry: d.entryPrice || '',\n    Exit: d.exitPrice || '',\n    PnL: pnl,\n    Duration: d.duration || '',\n    Balance_After: 'N/A',\n    Reason: d.reason || 'Trade closed'\n  };\n\n  return [{ json: { type: 'TRADE_CLOSED', ...d, _telegramMsg: msg, _sheetData: sheetData } }];\n}\n\n// === Täglicher Journal-Eintrag (Schedule 22 Uhr) ===\nconst uptime = stats.started_at\n  ? Math.round((Date.now() - new Date(stats.started_at)) / 3600000) + 'h'\n  : 'unbekannt';\n\nmsg = '📋 <b>Trading Journal – ' + dateStr + '</b>\\n\\n';\nmsg += '🔗 <b>Bridge Status:</b>\\n';\nmsg += '• ZMQ: ' + (stats.zmq_connected ? '🟢 Verbunden' : '🔴 Getrennt') + '\\n';\nmsg += '• Uptime: ' + uptime + '\\n';\nmsg += '• Signale heute: ' + (stats.signals_received || 0) + '\\n';\nmsg += '• Befehle gesendet: ' + (stats.commands_sent || 0) + '\\n';\nmsg += '• n8n Push OK: ' + (stats.n8n_push_ok || 0) + '\\n';\nif (stats.n8n_push_fail) msg += '• ⚠️ Push Fehler: ' + stats.n8n_push_fail + '\\n';\nmsg += '\\n<i>' + timeStr + '</i>';\n\nsheetData = {\n  Timestamp: now.toISOString(),\n  Ticket: 'DAILY',\n  Symbol: '-',\n  Direction: '-',\n  Entry: '-',\n  Exit: '-',\n  PnL: 0,\n  Duration: '-',\n  Balance_After: 'N/A',\n  Reason: 'Tages-Journal: Signale=' + (stats.signals_received || 0) + ' Befehle=' + (stats.commands_sent || 0)\n};\n\nreturn [{ json: { type: 'DAILY_JOURNAL', stats, date: dateStr, _telegramMsg: msg, _sheetData: sheetData } }];"
       }
     },
     {
@@ -123,12 +72,9 @@
       "name": "Journal Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [1760, 280],
+      "position": [1100, 260],
       "credentials": {
-        "telegramApi": {
-          "id": "lwOSLP3ylq10yEW4",
-          "name": "MT4 Telegram Bot"
-        }
+        "telegramApi": { "id": "lwOSLP3ylq10yEW4", "name": "MT4 Telegram Bot" }
       },
       "parameters": {
         "chatId": "7268021157",
@@ -141,7 +87,7 @@
       "name": "Journal in Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [1760, 460],
+      "position": [1100, 460],
       "credentials": {
         "googleApi": {
           "id": "82cab318-1cf6-4071-a030-1535dfe88501",
@@ -161,16 +107,16 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "Timestamp": "={{ $json._sheetData.Timestamp }}",
-            "Ticket": "={{ $json._sheetData.Ticket }}",
-            "Symbol": "={{ $json._sheetData.Symbol }}",
-            "Direction": "={{ $json._sheetData.Direction }}",
-            "Entry": "={{ $json._sheetData.Entry }}",
-            "Exit": "={{ $json._sheetData.Exit }}",
-            "PnL": "={{ $json._sheetData.PnL }}",
-            "Duration": "={{ $json._sheetData.Duration }}",
+            "Timestamp":     "={{ $json._sheetData.Timestamp }}",
+            "Ticket":        "={{ $json._sheetData.Ticket }}",
+            "Symbol":        "={{ $json._sheetData.Symbol }}",
+            "Direction":     "={{ $json._sheetData.Direction }}",
+            "Entry":         "={{ $json._sheetData.Entry }}",
+            "Exit":          "={{ $json._sheetData.Exit }}",
+            "PnL":           "={{ $json._sheetData.PnL }}",
+            "Duration":      "={{ $json._sheetData.Duration }}",
             "Balance_After": "={{ $json._sheetData.Balance_After }}",
-            "Reason": "={{ $json._sheetData.Reason }}"
+            "Reason":        "={{ $json._sheetData.Reason }}"
           },
           "matchingColumns": [],
           "schema": []
@@ -180,33 +126,14 @@
     }
   ],
   "connections": {
-    "Webhook Trade Closed": {
-      "main": [[{ "node": "Merge", "type": "main", "index": 0 }]]
-    },
-    "Taeglich 22 Uhr": {
-      "main": [[{ "node": "Merge", "type": "main", "index": 1 }]]
-    },
-    "Merge": {
-      "main": [[{ "node": "Buffer leeren", "type": "main", "index": 0 }]]
-    },
-    "Buffer leeren": {
-      "main": [[{ "node": "Account Info holen", "type": "main", "index": 0 }]]
-    },
-    "Account Info holen": {
-      "main": [[{ "node": "Warte 3s", "type": "main", "index": 0 }]]
-    },
-    "Warte 3s": {
-      "main": [[{ "node": "Hole Account", "type": "main", "index": 0 }]]
-    },
-    "Hole Account": {
-      "main": [[{ "node": "Journal erstellen", "type": "main", "index": 0 }]]
-    },
-    "Journal erstellen": {
-      "main": [[
-        { "node": "Journal Telegram", "type": "main", "index": 0 },
-        { "node": "Journal in Sheets", "type": "main", "index": 0 }
-      ]]
-    }
+    "Webhook Trade Closed": { "main": [[{ "node": "Merge", "type": "main", "index": 0 }]] },
+    "Taeglich 22 Uhr":      { "main": [[{ "node": "Merge", "type": "main", "index": 1 }]] },
+    "Merge":                { "main": [[{ "node": "Bridge Stats holen",  "type": "main", "index": 0 }]] },
+    "Bridge Stats holen":   { "main": [[{ "node": "Journal erstellen",   "type": "main", "index": 0 }]] },
+    "Journal erstellen": { "main": [[
+      { "node": "Journal Telegram",  "type": "main", "index": 0 },
+      { "node": "Journal in Sheets", "type": "main", "index": 0 }
+    ]]}
   },
   "settings": {
     "executionOrder": "v1",

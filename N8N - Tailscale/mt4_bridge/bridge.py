@@ -267,8 +267,11 @@ def _build_dwx_command(payload: "CommandPayload") -> str:
         magic   = str((payload.extra or {}).get("magic", 0))
         # FIX: DWX v2.0.1_RC8 parameter order: TRADE;OPEN;type;symbol;price;sl;tp;comment;lots;magic;ticket
         # WICHTIG: volume (lots) muss an Position 9 sein, nicht Position 6!
+        # BUG-7 FIX: SL/TP aus payload übernehmen (war vorher hardcoded 0;0)
+        sl = payload.sl or 0
+        tp = payload.tp or 0
         return (f"TRADE;OPEN;{tp_code};{payload.symbol or ''};0;"
-                f"0;0;{payload.comment or ''};"
+                f"{sl};{tp};{payload.comment or ''};"
                 f"{payload.volume or 0.01};{magic};0")
 
     if action == "CLOSE_TRADE":
