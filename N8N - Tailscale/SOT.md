@@ -229,7 +229,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-12 🟢 `CC-HAIKU`: Google Sheets alle Tabs verifizieren. 5 Tabs identifiziert: Trade-Log (WF2), TA-Log (WF7, 12 Spalten), Active-Trades (WF8), Monitor-Log (WF9), Journal (WF10). Alle Workflows mit korrekter Google Sheets Credential (82cab3...). Sheet ID: 1J1MNti... ✅
 
 ### Housekeeping
-- [~CC-HAIKU] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen (lokal: d:\GH\demo_trade.py etc., VPS: /tmp/test_*.py etc.)
+- [x] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen. Gelöscht: lokal 4x (demo_trade.py, test_btc_trade.py, test_raw_formats.py, test_trade_formats.py) + VPS 4x (/tmp/test_*.py). Total 8 Dateien. ✅
 - [x] TASK-14 🟢 `CC-HAIKU`: bridge.py Repo mit ast-Patch + /mt4/raw Endpoint synchronisiert. Beide Patches in lokale Version integriert + deployed.
 - [x] TASK-15 🟢 `CC-HAIKU`: Git commit + push aller Änderungen (commit 6333378f8f)
 
@@ -310,4 +310,5 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 10:00 | CC-SONNET | TASK-7: WF2 exportiert von n8n. Code2 Node: besseres Signal-Parsing (parts[1..5] + raw fallback für fehlende Felder). GS Columns updated (Symbol, Signal, Preis, Volume, SL, TP, Ticket, Status). Importiert zu n8n. | ~25k
 2026-02-15 10:05 | CC-SONNET | TASK-8: WF2 Telegram-Nachricht verbessert. Code2 generiert formatierte Nachricht mit: Emoji (BUY/SELL/ERROR), Symbol, Signal-Typ, Preis, Volume, SL/TP, Ticket. Nicht mehr nur generische "SIGNAL"-Meldung. Importiert. | ~10k
 2026-02-15 10:15 | CC-HAIKU | TASK-12: Google Sheets Struktur verifiziert. 5 Tabs: Trade-Log (WF2), TA-Log (WF7: 12 Spalten), Active-Trades (WF8: Timestamp/Ticket/Symbol/Status), Monitor-Log (WF9), Journal (WF10). Alle Workflows mit Credential 82cab318-1cf6 + Sheet 1J1MNti... konfiguriert. ✅ | ~15k
+2026-02-15 10:20 | CC-HAIKU | TASK-13: Temp-Dateien gelöscht. Lokal: demo_trade.py, test_btc_trade.py, test_raw_formats.py, test_trade_formats.py (4x). VPS /tmp: test_*.py (4x). Total 8 Dateien. ✅ | ~8k
 ```
