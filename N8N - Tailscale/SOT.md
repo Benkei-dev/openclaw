@@ -250,7 +250,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-18 🟢 `CC-HAIKU`: **SOT.md finalisiert ✅**. Übergabe-Notiz aktualisiert (Port-Konflikt erledigt). Infrastruktur-Tabelle: llama-server Port 11434 (✅ Active). Log-Einträge hinzugefügt.
 
 ### Phase 5 – Verifikation & E2E-Tests
-- [ ] TASK-19 🟢 `CC-HAIKU`: **BUG-7 SL/TP Fix verifizieren** – Test-Trade BUY 0.01 BTCUSD mit SL=68000, TP=72000 senden. Prüfen ob SL/TP im Trade gesetzt sind (nicht 0). Bei Erfolg BUG-7 auf `[x]` setzen. BTCUSD ist am WE aktiv (Crypto 24/7).
+- [~CC-HAIKU] TASK-19 🟢 `CC-HAIKU`: **BUG-7 SL/TP Fix verifizieren** – Test-Trade BUY 0.01 BTCUSD mit SL=68000, TP=72000 senden. Prüfen ob SL/TP im Trade gesetzt sind (nicht 0). Bei Erfolg BUG-7 auf `[x]` setzen. BTCUSD ist am WE aktiv (Crypto 24/7).
 
 ---
 
