@@ -155,9 +155,10 @@ Regeln: SOT.md lesen → Task claimen → arbeiten → SOT.md updaten → commit
 
 | # | Agent | Start | Ende | Tasks erledigt | ~Tokens | Archiv |
 |---|-------|-------|------|----------------|---------|--------|
-| 1 | CP-OPUS | 2026-02-14 19:00 | laufend | WF7-10, Bridge-Patch, SOT, HANDOFF | ~220k | — |
+| 1 | CP-OPUS | 2026-02-14 19:00 | 2026-02-15 13:39 | WF7-10, Bridge-Patch, SOT, HANDOFF, Port-Fix, Sheets-API, TASK-19 LIVE-TEST | ~290k | — |
 | 2 | CC-HAIKU | 2026-02-15 07:00 | 07:45 | TASK-1,2,3,14,15, BUG-1,6 | ~85k | — |
-| 3 | CC-SONNET | 2026-02-15 10:30 | laufend | TASK-5,6,7,8,9,10,11, BUG-7,8,9 Fix | ~145k | — |
+| 3 | CC-SONNET | 2026-02-15 10:30 | 2026-02-15 13:40 | TASK-5,6,7,8,9,10,11, BUG-7,8,9 Fix, Workarounds | ~200k | — |
+| 4 | CC-HAIKU | 2026-02-15 13:00 | ⏳ laufend | TASK-12,13,16,17,18,19 | ~95k | — |
 
 ---
 
@@ -256,7 +257,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [ ] TASK-20 🟢 `CC-HAIKU`: **WF4 Auth-Fix + Telegram-Spam stoppen**. DRINGEND! WF4 Bridge Health Node sendet GET ohne Auth-Header → 401 → "Bridge offline" Telegram-Spam alle 5min. Fix: Auth-Header `Authorization: Bearer 77cc86ea...28cb` zum HTTP-Node `Bridge Health` hinzufügen. Danach IF-Node prüft `status == ok` korrekt.
 - [ ] TASK-21 🟡 `CC-SONNET`: **WF4 Telegram Status-Summary**. Statt nur "offline" Alert: 5min Status-Report an Telegram mit: offene Trades (aus Active-Trades Sheet), PnL-Übersicht, Bridge-Stats. Nur senden wenn sich etwas ändert (Debounce).
 - [ ] TASK-22 🟡 `CC-SONNET`: **WF8 Telegram-Bestätigung (Testphase)**. Trade-Signal kommt → WF8 sendet Strategie-Summary an Telegram (Richtung, Symbol, SL/TP, R:R, Grund/Score) → User bestätigt per Inline-Keyboard (✅ Freigeben / ❌ Ablehnen / 🔧 Anpassen) → erst nach Bestätigung wird Trade ausgeführt. Nutzt Telegram `sendMessage` mit `reply_markup` InlineKeyboard + WF3 Telegram Commands als Callback-Handler.
-- [ ] TASK-23 🟡 `CC-SONNET`: **WF7 Trade Analyzer Trigger fixen + Analyse-Kette**. WF7 läuft NIE (0 Executions). Braucht Cron-Trigger (z.B. alle 15min). Flow: Cron → HIST-Daten von Bridge → Technische Analyse (RSI/EMA/ATR) → Signal-Score berechnen → wenn Score > Schwelle: WF8 per Webhook triggern mit Trade-Daten (Symbol, Direction, SL, TP, Lots, Score, Reason). TA-Log in Sheets schreiben.
+- [~CC-SONNET] TASK-23 🟡 `CC-SONNET`: **WF7 Trade Analyzer Trigger fixen + Analyse-Kette**. WF7 läuft NIE (0 Executions). Braucht Cron-Trigger (z.B. alle 15min). Flow: Cron → HIST-Daten von Bridge → Technische Analyse (RSI/EMA/ATR) → Signal-Score berechnen → wenn Score > Schwelle: WF8 per Webhook triggern mit Trade-Daten (Symbol, Direction, SL, TP, Lots, Score, Reason). TA-Log in Sheets schreiben.
 - [ ] TASK-24 🟢 `CC-HAIKU`: **WF6 News Monitor aktivieren**. WF6 hat 0 Executions. Trigger-Node prüfen/fixen (Cron für ForexFactory-Scraping). News-Daten in News-Log Sheet schreiben. Telegram-Alert bei High-Impact News.
 - [ ] TASK-25 🟡 `CC-SONNET`: **Google Sheets optimieren**. a) Neueste Daten oben einfügen (batchUpdate insertRows statt append). b) Bessere Spalten: Performance-Tab um PnL, Balance, Equity, Drawdown erweitern. c) Archiv-Mechanismus: Monatlich alte Daten in Archiv-Tab verschieben (Code-Node mit Sheets API).
 - [ ] TASK-26 🟢 `ST (manuell)`: **MT4 EA MaxOrders erhöhen**. In MT4 → Experten → DWX EA → Inputs → `MaxOrders` von 1 auf 5 oder 10 setzen. Ohne das kann nur 1 Trade gleichzeitig offen sein. Danach EA Chart-Fenster neuladen.
@@ -353,4 +354,5 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 13:30 | CC-HAIKU | TASK-19: BUG-7 SL/TP Fix Verifizierung. Code-Check: bridge.py Zeile 271-274 korrekt (sl = payload.sl or 0, tp = payload.tp or 0). Live-Test mit BUY 0.01 BTCUSD gescheitert (Sonntag, Märkte geschlossen). BUG-7 Code-Verified ✅. Live-Test Mo-Fr scheduled. | ~12k
 2026-02-15 13:39 | CP-OPUS | TASK-19 LIVE-TEST: Alter Trade #14155371 geschlossen @ $68914. Neuer Trade #14155612 BUY 0.01 BTCUSD mit SL=$68337 TP=$69727 ERFOLGREICH. BUG-7 endgültig verifiziert. MAX_ORDERS-Limit bei Capital.com Demo = 1 Trade (war Grund für Haikus Fehlschlag). | ~15k
 2026-02-15 14:10 | CP-OPUS | Phase 6 geplant (TASK-20–27): WF4 Auth-Fix, Telegram-Bestätigung, WF7 Trigger, News Monitor, Sheets-Optimierung, E2E-Kette. Analyse: WF7/WF8/WF6 haben 0 Executions, WF4 sendet falschen "offline" Alert (fehlender Auth-Header). | ~20k
+2026-02-15 14:15 | CC-HAIKU | **CHAT ROTATION**: Session 1 (CP-OPUS), 3 (CC-SONNET) beendet. Session 4 (CC-HAIKU, diese) dokumentiert. Status: Phase 1-5 ✅ KOMPLETT (19 Tasks, 5 Bugs gefixt). Phase 6 (8 neue Tasks) geplant. TASK-20 (WF4 Auth-Fix) ist DRINGEND. | ~15k
 ```
