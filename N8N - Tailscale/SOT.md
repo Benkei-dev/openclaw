@@ -219,8 +219,8 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 ### Phase 2 – Workflows optimieren
 - [x] TASK-5 🟡 `CC-SONNET`: Bridge Market-Push deaktiviert (PUSH_MARKET_TO_N8N=false). WF1 Rate Limiting gelöst. ✅
 - [x] TASK-6 🟡 `CC-SONNET`: WF7 TA-Log Append hinzugefügt. Nodes: Format TA-Log → TA-Log in Sheets. Schreibt: timestamp, symbol, RSI, EMA20, EMA50, ATR, trend, signal_score. Importiert. ✅
-- [ ] TASK-7 🟡 `CC-SONNET`: WF2 Signal-Daten korrekt extrahieren und in Trade-Log schreiben
-- [ ] TASK-8 🟡 `CC-SONNET`: WF2 Telegram-Nachricht mit Signal-Details formatieren
+- [x] TASK-7 🟡 `CC-SONNET`: WF2 Signal-Daten extrahieren verbessert. Code2 Node: besseres Parsing (parts + raw fallback). GS Columns: Symbol, Signal, Preis, Volume, SL, TP, Ticket, Status. Importiert. ✅
+- [x] TASK-8 🟡 `CC-SONNET`: WF2 Telegram formatiert mit allen Signal-Details (nicht nur "SIGNAL"). Emoji, Preis, Volume, SL/TP gezeigt. Code2 Node. Importiert. ✅
 
 ### Phase 3 – Testen & Stabilisieren
 - [ ] TASK-9 🟡 `CC-SONNET`: WF8 Trade Executor End-to-End testen
@@ -307,4 +307,6 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 09:13 | CP-OPUS | 🎉 ERSTER DEMO-TRADE: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16. Komplette Pipeline funktioniert! | ~15k
 2026-02-15 09:30 | CC-SONNET | TASK-5: Bridge PUSH_MARKET_TO_N8N=false (default) gesetzt. Market-Ticks werden nicht mehr zu n8n gepusht (verhindert Sheets Rate Limit in WF1). Bridge restartet + Health-Check OK. | ~25k
 2026-02-15 09:45 | CC-SONNET | TASK-6: WF7 JSON modifiziert: Format TA-Log + TA-Log in Sheets Nodes hinzugefügt. Routing: Tech.Analyse → Format → Append → Signal Check. Google Sheets Credential & TA-Log Tab konfiguriert. Zu n8n importiert. | ~30k
+2026-02-15 10:00 | CC-SONNET | TASK-7: WF2 exportiert von n8n. Code2 Node: besseres Signal-Parsing (parts[1..5] + raw fallback für fehlende Felder). GS Columns updated (Symbol, Signal, Preis, Volume, SL, TP, Ticket, Status). Importiert zu n8n. | ~25k
+2026-02-15 10:05 | CC-SONNET | TASK-8: WF2 Telegram-Nachricht verbessert. Code2 generiert formatierte Nachricht mit: Emoji (BUY/SELL/ERROR), Symbol, Signal-Typ, Preis, Volume, SL/TP, Ticket. Nicht mehr nur generische "SIGNAL"-Meldung. Importiert. | ~10k
 ```
