@@ -226,7 +226,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [ ] TASK-9 🟡 `CC-SONNET`: WF8 Trade Executor End-to-End testen
 - [ ] TASK-10 🟡 `CC-SONNET`: WF9 Trade Monitor mit offenem Trade testen
 - [ ] TASK-11 🟡 `CC-SONNET`: WF10 Trade Journal nach Trade-Close prüfen
-- [ ] TASK-12 🟢 `CC-HAIKU`: Google Sheets alle Tabs verifizieren (Trade-Log, TA-Log, Active-Trades, etc.)
+- [~CC-HAIKU] TASK-12 🟢 `CC-HAIKU`: Google Sheets alle Tabs verifizieren (Trade-Log, TA-Log, Active-Trades, etc.)
 
 ### Housekeeping
 - [ ] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen (lokal: d:\GH\demo_trade.py etc., VPS: /tmp/test_*.py etc.)
