@@ -217,7 +217,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-4 🟡 `CP-OPUS`: Demo-Trade LIVE getestet: BUY 0.01 BTCUSD → Ticket #14155371 @ $70,806.16 ✅
 
 ### Phase 2 – Workflows optimieren
-- [ ] TASK-5 🟡 `CC-SONNET`: WF1 Throttle einbauen oder Market-Push deaktivieren (Rate Limit fix)
+- [~CC-SONNET] TASK-5 🟡 `CC-SONNET`: WF1 Throttle einbauen oder Market-Push deaktivieren (Rate Limit fix)
 - [ ] TASK-6 🟡 `CC-SONNET`: WF7 → Google Sheets: Analyse-Ergebnisse (RSI, EMA, ATR) in TA-Log schreiben
 - [ ] TASK-7 🟡 `CC-SONNET`: WF2 Signal-Daten korrekt extrahieren und in Trade-Log schreiben
 - [ ] TASK-8 🟡 `CC-SONNET`: WF2 Telegram-Nachricht mit Signal-Details formatieren
