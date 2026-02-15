@@ -172,6 +172,8 @@ Regeln: SOT.md lesen → Task claimen → arbeiten → SOT.md updaten → commit
 | ZMQ Signal (MT4→Bridge) | 100.121.91.27 | 32768 | ✅ |
 | ZMQ Command (Bridge→MT4) | 100.121.91.27 | 32769 | ✅ |
 | ZMQ Market (MT4→Bridge) | 100.121.91.27 | 32770 | ✅ |
+| bridge-ipv6-proxy (socat) | [::1]→127.0.0.1 (VPS) | 8765 | ✅ Node.js 24 IPv6 Fix |
+| llama-server (openclaw) | 127.0.0.1 (VPS) | 8765→**11434** | ⏸️ disabled, wartet auf TASK-16 |
 
 ### Pfade auf VPS
 ```
@@ -180,6 +182,9 @@ Regeln: SOT.md lesen → Task claimen → arbeiten → SOT.md updaten → commit
 /opt/mt4-bridge/venv/              ← Python venv
 /etc/systemd/system/mt4-bridge.service
 /etc/systemd/system/n8n.service
+/etc/systemd/system/bridge-ipv6-proxy.service  ← socat [::1]:8765→127.0.0.1:8765
+/etc/systemd/system/local-llm.service          ← llama-server (aktuell DISABLED)
+/opt/openclaw-llm-setup/                       ← openclaw LLM-Config (Port 8765→11434 via TASK-16)
 ```
 
 ### Auth
@@ -237,8 +242,35 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-14 🟢 `CC-HAIKU`: bridge.py Repo mit ast-Patch + /mt4/raw Endpoint synchronisiert. Beide Patches in lokale Version integriert + deployed.
 - [x] TASK-15 🟢 `CC-HAIKU`: Git commit + push aller Änderungen (commit 6333378f8f)
 
-### Später (nach Phase 3)
-- [ ] TASK-16 🟡 `tbd`: Port-Konflikt 8765 lösen: llama-server (openclaw/n8n KI-Modell) und MT4 Bridge teilen sich Port 8765. llama-server ist aktuell gestoppt. Lösung: llama-server auf Port 8766 umkonfigurieren ODER Bridge auf anderen Port legen. Dann beide Services parallel laufen lassen.
+### Phase 4 – Cleanup & Port-Migration (CC-HAIKU)
+- [ ] TASK-16 🟢 `CC-HAIKU`: **llama-server Port-Migration 8765 → 11434**. Port 8765 bleibt bei MT4 Bridge. llama-server auf Port 11434 umkonfigurieren und wieder aktivieren. Dateien auf VPS ändern (alle `8765` → `11434`):
+  1. `/etc/systemd/system/local-llm.service` → `--port 11434`
+  2. `/opt/openclaw-llm-setup/config/local-llm-provider.json` → `baseUrl` + `endpoint` (2 Stellen)
+  3. `/opt/openclaw-llm-setup/scripts/llm-metrics-collect.sh` Zeile 10
+  4. `/opt/openclaw-llm-setup/scripts/llm-health-check.sh` Zeile 10
+  5. `/opt/openclaw-llm-setup/scripts/test-local-llm.sh` Zeile 10
+  6. `/opt/openclaw-llm-setup/scripts/local-llm.service` Zeile 47 (Template-Kopie)
+  7. `/opt/openclaw-llm-setup/scripts/install-local-llm.sh` Zeile 23 + 217
+  Danach: `systemctl daemon-reload && systemctl enable local-llm && systemctl start local-llm`
+  Verifizieren: `curl http://127.0.0.1:11434/health` muss OK sein.
+  **ACHTUNG**: Bridge auf Port 8765 + socat-Proxy NICHT anfassen! Die bleiben wie sie sind.
+
+- [ ] TASK-17 🟢 `CC-HAIKU`: **VPS Temp-Dateien aufräumen**. Alle Diagnose-Skripte in `/tmp/` löschen. Sicher zu löschen (weder Opus noch Sonnet brauchen diese):
+  ```
+  # SICHERHEITSKRITISCH – sofort löschen:
+  rm -f /tmp/sa_key.json /tmp/cred_raw.txt /tmp/n8n-creds.json
+  
+  # Diagnostik-Skripte (alle sicher löschbar):
+  rm -f /tmp/*.py /tmp/*.js /tmp/*.sh /tmp/*.json /tmp/*.txt
+  ```
+  **ACHTUNG**: Nur Dateien löschen, keine Verzeichnisse! `/tmp/openclaw/` NICHT anfassen (openclaw-gateway Log).
+  Verifizieren: `ls /tmp/*.py /tmp/*.js /tmp/*.sh /tmp/*.json /tmp/*.txt 2>/dev/null | wc -l` soll 0 sein.
+
+- [ ] TASK-18 🟢 `CC-HAIKU`: **SOT.md aktualisieren** nach TASK-16+17. Einträge updaten:
+  - Infrastruktur-Tabelle: Zeile für `llama-server` hinzufügen (Port 11434, Status ✅)
+  - Zeile für `bridge-ipv6-proxy` (socat) hinzufügen (Port 8765 [::1]→127.0.0.1)
+  - Übergabe-Notiz "Port-Konflikt 8765" auf erledigt setzen
+  - Log-Eintrag am Ende hinzufügen
 
 ---
 
@@ -249,12 +281,12 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 | 1 | TsesAyfkGln2WH00 | Marktdaten Empfang & Log | ✅ | 🔴 Rate Limit + Symbol UNKNOWN |
 | 2 | 6DcFnzHicZOh0FxZ | Signal Empfang & Alert | ✅ | 🟡 Nur "SIGNAL", generische Telegram-Msg |
 | 3 | GjpBqxXZdHGGp218 | Telegram Commands | ❌ | ⬜ Nicht getestet |
-| 4 | 2a1wXTU56DD2s0Yc | Portfolio Monitor | ✅ | ⬜ Nicht getestet |
+| 4 | 2a1wXTU56DD2s0Yc | Portfolio Monitor | ✅ | ✅ Läuft seit 15.02. 10:40 UTC stabil |
 | 5 | EVwU9BzKSKXuitLL | Tagesreport | ✅ | ⬜ Nicht getestet |
 | 6 | 8KAXUPF2J9EHbFAN | News Monitor | ✅ | ⬜ Nicht getestet |
-| 7 | 1T0fMAYzQKf8yM6j | Trade Analyzer | ✅ | 🟡 Analyse OK, Trade-Exec scheitert |
-| 8 | CfULtpthxJXm3S25 | Trade Executor | ✅ | ✅ TRADE funktioniert (Ticket #14155371) |
-| 9 | 0bRXfI6yvP7yVjlm | Trade Monitor | ✅ | 🔴 BUG-8: GET_OPEN_TRADES nicht unterstützt → nie Daten |
+| 7 | 1T0fMAYzQKf8yM6j | Trade Analyzer | ✅ | 🟡 Analyse OK, Trade-Exec scheitert (BUG-7: SL/TP=0) |
+| 8 | CfULtpthxJXm3S25 | Trade Executor | ✅ | ✅ TRADE funktioniert (Ticket #14155371) — BUG-7: kein SL/TP |
+| 9 | 0bRXfI6yvP7yVjlm | Trade Monitor | ✅ | 🟡 Läuft seit 15.02. 12:12 UTC — BUG-8: GET_OPEN_TRADES Workaround nötig |
 | 10 | Y1Z1WK5KInRXLlVY | Trade Journal | ✅ | 🔴 BUG-9: GET_ACCOUNT_INFO nicht unterstützt → Balance=0 |
 
 ---
@@ -283,6 +315,9 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - **EA Port-Swap**: Die EA VERTAUSCHT intern PUSH_PORT und PULL_PORT! Input `PUSH_PORT=32768` bindet als `[PULL]` auf 32768. Das ist by-design. Bridge .env ist korrekt konfiguriert.
 - **bridge.py Repo vs VPS**: Repo-Version ist Referenz. VPS hat zusätzlich ast-Patch + /mt4/raw. Immer synchron halten!
 - **n8n API Key**: Gesetzt aber von v2.7.5 nicht erkannt (401). Workflows laufen über Webhooks.
+- **Node.js 24 IPv6**: Node v24.13.1 löst `localhost` als `::1` (IPv6) auf, nicht `127.0.0.1`. socat-Proxy (`bridge-ipv6-proxy.service`) leitet `[::1]:8765` → `127.0.0.1:8765` weiter. NICHT entfernen!
+- **llama-server disabled**: `local-llm.service` ist deaktiviert weil Port 8765 mit Bridge kollidierte. TASK-16 migriert auf Port 11434.
+- **Google Sheet Tabs**: Trade-Log, TA-Log, News-Log, Performance, Config, Errors (alt) + Monitor-Log, Active-Trades, Journal (neu erstellt 15.02. 12:12 UTC)
 
 ---
 
@@ -316,4 +351,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 10:15 | CC-HAIKU | TASK-12: Google Sheets Struktur verifiziert. 5 Tabs: Trade-Log (WF2), TA-Log (WF7: 12 Spalten), Active-Trades (WF8: Timestamp/Ticket/Symbol/Status), Monitor-Log (WF9), Journal (WF10). Alle Workflows mit Credential 82cab318-1cf6 + Sheet 1J1MNti... konfiguriert. ✅ | ~15k
 2026-02-15 10:20 | CC-HAIKU | TASK-13: Temp-Dateien gelöscht. Lokal: demo_trade.py, test_btc_trade.py, test_raw_formats.py, test_trade_formats.py (4x). VPS /tmp: test_*.py (4x). Total 8 Dateien. ✅ | ~8k
 2026-02-15 10:35 | CC-SONNET | TASK-9/10/11: WF8/9/10 Code-Review. BUG-7: _build_dwx_command BUY/SELL hardcoded SL=0,TP=0. BUG-8: WF9 GET_OPEN_TRADES nicht unterstützt in DWX v2.0.1_RC8. BUG-9: WF10 GET_ACCOUNT_INFO nicht unterstützt. Alle 3 Tasks [x]. Übergabe-Notizen übernommen. | ~55k
+2026-02-15 10:40 | CP-OPUS | WF4/WF9 ECONNREFUSED gefixt: Root Cause 1: local-llm.service (llama-server) blockierte IPv4 auf Port 8765 → disabled. Root Cause 2: Node.js v24 löst localhost als IPv6 ::1 auf → socat bridge-ipv6-proxy.service erstellt. WF4 läuft seit 10:40 UTC. | ~40k
+2026-02-15 12:12 | CP-OPUS | WF9 Monitor-Log Sheet-Tab fehlte. SA-Key aus n8n DB entschlüsselt (CryptoJS OpenSSL EVP_BytesToKey). 3 Tabs via Google Sheets API erstellt: Monitor-Log, Active-Trades, Journal. WF9 läuft seit 12:12 UTC. | ~30k
+2026-02-15 12:55 | CP-OPUS | TASK-16/17/18 für CC-HAIKU definiert: llama Port-Migration 8765→11434, VPS Temp-Cleanup, SOT Update. | ~10k
 ```
