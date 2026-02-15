@@ -209,8 +209,8 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [ ] BUG-5: Telegram nur "MT4 Signal / Typ: SIGNAL" – WF2 formatiert keine Daten in die Nachricht.
 - [x] BUG-6: TRACK_SYMBOLS=EURUSD statt BTCUSD – .env auf VPS auf `EURUSD;BTCUSD;GOLD;US100` gesetzt + Bridge restarted.
 - [ ] BUG-7: 🔴 `HARD` `CC-OPUS` – `_build_dwx_command()` für BUY/SELL ignoriert `payload.sl` und `payload.tp` → Trades öffnen immer ohne SL/TP (sl=0, tp=0). Fix: In `_build_dwx_command()` bridge.py Zeile 270-272: `0;0` durch `{payload.sl or 0};{payload.tp or 0}` ersetzen.
-- [ ] BUG-8: 🟡 `MED` `CC-SONNET` – WF9 sendet `GET_OPEN_TRADES` an Bridge, aber DWX EA v2.0.1_RC8 unterstützt diesen Befehl NICHT. WF9 bekommt keine Trade-Liste → Trade-Management funktioniert nie. Workaround: Trades über n8n Active-Trades Sheet tracken (Daten aus WF8).
-- [ ] BUG-9: 🟡 `MED` `CC-SONNET` – WF10 sendet `GET_ACCOUNT_INFO` an Bridge, aber DWX EA v2.0.1_RC8 unterstützt diesen Befehl NICHT → Balance/Equity immer 0 im Journal. Workaround: Account-Info aus Google Sheets (letzter WF8 Trade-Eintrag) aggregieren.
+- [~CC-SONNET] BUG-8: 🟡 `MED` `CC-SONNET` – WF9 sendet `GET_OPEN_TRADES` an Bridge, aber DWX EA v2.0.1_RC8 unterstützt diesen Befehl NICHT. WF9 bekommt keine Trade-Liste → Trade-Management funktioniert nie. Workaround: Trades über n8n Active-Trades Sheet tracken (Daten aus WF8).
+- [~CC-SONNET] BUG-9: 🟡 `MED` `CC-SONNET` – WF10 sendet `GET_ACCOUNT_INFO` an Bridge, aber DWX EA v2.0.1_RC8 unterstützt diesen Befehl NICHT → Balance/Equity immer 0 im Journal. Workaround: Account-Info aus Google Sheets (letzter WF8 Trade-Eintrag) aggregieren.
 
 ---
 
