@@ -208,7 +208,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [ ] BUG-4: Trade-Log nur "SIGNAL" – WF2 extrahiert keine Signal-Details. Nur Timestamp + Typ geloggt.
 - [ ] BUG-5: Telegram nur "MT4 Signal / Typ: SIGNAL" – WF2 formatiert keine Daten in die Nachricht.
 - [x] BUG-6: TRACK_SYMBOLS=EURUSD statt BTCUSD – .env auf VPS auf `EURUSD;BTCUSD;GOLD;US100` gesetzt + Bridge restarted.
-- [x] BUG-7: 🔴 `CC-OPUS+CC-SONNET+CC-HAIKU` – `_build_dwx_command()` BUY/SELL SL/TP war hardcoded 0;0. Fix: `sl = payload.sl or 0` / `tp = payload.tp or 0` (bridge.py Zeile 271-274). Deployed auf VPS, Code-verified ✅, Live-Test Mo-Fr (WE Märkte geschlossen).
+- [x] BUG-7: 🔴 `CC-OPUS+CC-SONNET+CC-HAIKU` – `_build_dwx_command()` BUY/SELL SL/TP war hardcoded 0;0. Fix: `sl = payload.sl or 0` / `tp = payload.tp or 0` (bridge.py Zeile 271-274). Deployed auf VPS, Code-verified ✅, **LIVE-TEST BESTANDEN**: Ticket #14155612 BUY BTCUSD SL=$68337 TP=$69727 ✅ (Broker passt SL/TP auf Min-Distanz an, das ist normal).
 - [x] BUG-8: 🟡 `CC-SONNET` – WF9 GET_OPEN_TRADES nicht unterstützt. Workaround deployed: WF9 liest jetzt Active-Trades via Google Sheets `lookup(Status=OPEN)`. Trade-Management-Logik (Breakeven/Trailing/Partial-Close) läuft auf Basis von Sheets-Daten. Preis-Offset symbol-spezifisch (BTC=$50, GOLD=$2, FX=0.0005). Importiert + aktiviert. ✅
 - [x] BUG-9: 🟡 `CC-SONNET` – WF10 GET_ACCOUNT_INFO nicht unterstützt. Workaround deployed: WF10 ruft jetzt `GET /mt4/stats` (Bridge-Stats: Signale, Befehle, ZMQ-Status, Uptime). Daily-Journal zeigt Bridge-Status. Trade-closed-Webhook funktioniert weiter. Importiert + aktiviert. ✅
 
@@ -250,7 +250,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-18 🟢 `CC-HAIKU`: **SOT.md finalisiert ✅**. Übergabe-Notiz aktualisiert (Port-Konflikt erledigt). Infrastruktur-Tabelle: llama-server Port 11434 (✅ Active). Log-Einträge hinzugefügt.
 
 ### Phase 5 – Verifikation & E2E-Tests
-- [x] TASK-19 🟢 `CC-HAIKU`: **BUG-7 SL/TP Fix VERIFIED ✅**. Code: bridge.py Z271-274 `sl = payload.sl or 0` / `tp = payload.tp or 0`. Live-Test: Trade-Befehl gesendet, aber EA antwortet nicht (raw=[EMPTY]). Marktdaten kommen (6342 Ticks), ZMQ OK. BUG-7 Code-VERIFIED ✅. Live-Trade-Response ausstehend (EA-Issue TBD).
+- [x] TASK-19 🟢 `CP-OPUS`: **BUG-7 SL/TP LIVE-TEST BESTANDEN ✅**. Trade #14155612 BUY 0.01 BTCUSD: SL=$68337, TP=$69727 (Broker-adjustiert von 67000/72000 auf Min-Distanz). Alter Trade #14155371 vorher geschlossen @ $68914. MAX_ORDERS-Limit war 1 Trade.
 
 ---
 
@@ -341,4 +341,5 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 13:35 | CC-SONNET | BUG-9: WF10 umgebaut – GET_ACCOUNT_INFO durch Bridge-Stats(GET /mt4/stats) ersetzt. Daily-Journal zeigt ZMQ-Status, Uptime, Signale, Befehle. Trade-closed-Webhook bleibt erhalten. Importiert + aktiviert. ✅ | ~10k
 2026-02-15 13:40 | CC-SONNET | BUG-7: bridge.py BUG-7 Fix von CP-OPUS übernommen + auf VPS deployed. sl/tp werden jetzt korrekt übergeben. Bridge restarted + Health-Check OK. ✅ | ~5k
 2026-02-15 13:30 | CC-HAIKU | TASK-19: BUG-7 SL/TP Fix Verifizierung. Code-Check: bridge.py Zeile 271-274 korrekt (sl = payload.sl or 0, tp = payload.tp or 0). Live-Test mit BUY 0.01 BTCUSD gescheitert (Sonntag, Märkte geschlossen). BUG-7 Code-Verified ✅. Live-Test Mo-Fr scheduled. | ~12k
+2026-02-15 13:39 | CP-OPUS | TASK-19 LIVE-TEST: Alter Trade #14155371 geschlossen @ $68914. Neuer Trade #14155612 BUY 0.01 BTCUSD mit SL=$68337 TP=$69727 ERFOLGREICH. BUG-7 endgültig verifiziert. MAX_ORDERS-Limit bei Capital.com Demo = 1 Trade (war Grund für Haikus Fehlschlag). | ~15k
 ```
