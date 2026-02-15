@@ -223,7 +223,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [x] TASK-8 🟡 `CC-SONNET`: WF2 Telegram formatiert mit allen Signal-Details (nicht nur "SIGNAL"). Emoji, Preis, Volume, SL/TP gezeigt. Code2 Node. Importiert. ✅
 
 ### Phase 3 – Testen & Stabilisieren
-- [ ] TASK-9 🟡 `CC-SONNET`: WF8 Trade Executor End-to-End testen
+- [~CC-SONNET] TASK-9 🟡 `CC-SONNET`: WF8 Trade Executor End-to-End testen
 - [ ] TASK-10 🟡 `CC-SONNET`: WF9 Trade Monitor mit offenem Trade testen
 - [ ] TASK-11 🟡 `CC-SONNET`: WF10 Trade Journal nach Trade-Close prüfen
 - [x] TASK-12 🟢 `CC-HAIKU`: Google Sheets alle Tabs verifizieren. 5 Tabs identifiziert: Trade-Log (WF2), TA-Log (WF7, 12 Spalten), Active-Trades (WF8), Monitor-Log (WF9), Journal (WF10). Alle Workflows mit korrekter Google Sheets Credential (82cab3...). Sheet ID: 1J1MNti... ✅
