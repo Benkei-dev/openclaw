@@ -1,0 +1,176 @@
+[
+  {
+    "updatedAt": "2026-02-14T14:36:51.529Z",
+    "createdAt": "2026-02-14T12:04:08.281Z",
+    "id": "6DcFnzHicZOh0FxZ",
+    "name": "MT4 - 2 Signal Empfang & Alert",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "wh2",
+        "name": "Webhook Signale",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          200,
+          300
+        ],
+        "parameters": {
+          "path": "mt4-signal",
+          "responseMode": "onReceived",
+          "options": {},
+          "httpMethod": "POST"
+        },
+        "webhookId": "sig001"
+      },
+      {
+        "id": "code2",
+        "name": "Signal formatieren",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          300
+        ],
+        "parameters": {
+          "jsCode": "const d = $input.first().json;\nconst action = d.action || d.type || (d.parts && d.parts[0]) || 'SIGNAL';\nconst symbol = d.symbol || (d.parts && d.parts[1]) || 'UNKNOWN';\nconst price = d.price || d.open_price || (d.parts && d.parts[2]) || '';\nconst volume = d.volume || (d.parts && d.parts[3]) || '';\nconst sl = d.sl || (d.parts && d.parts[4]) || '';\nconst tp = d.tp || (d.parts && d.parts[5]) || '';\nconst ticket = d.ticket || '';\nconst status = d.status || 'PENDING';\n\n// Extract from raw if parts parsing fails\nlet parsed = d;\nif (d.raw && typeof d.raw === 'string' && !d.symbol) {\n  try {\n    const rawStr = d.raw.replace(/'/g, '\"').replace(/True/g, 'true').replace(/False/g, 'false');\n    parsed = JSON.parse(rawStr);\n  } catch (e) {}\n}\n\n// Telegram message with all signal details\nconst emoji = action.includes('BUY') || action === '0' ? '\ud83d\udfe2' : \n              action.includes('SELL') || action === '1' ? '\ud83d\udd34' :\n              action === 'EXECUTION' ? '\u2705' : action === 'ERROR' ? '\u274c' : '\u2139\ufe0f';\nlet msg = emoji + ' <b>MT4 Signal \u2013 ' + symbol + '</b>\n\n';\nmsg += '<b>Signal:</b> ' + action + ' (Status: ' + status + ')\n';\nif (price) msg += '<b>Preis:</b> $' + price + '\n';\nif (volume) msg += '<b>Volume:</b> ' + volume + '\n';\nif (sl) msg += '<b>SL:</b> $' + sl + '\n';\nif (tp) msg += '<b>TP:</b> $' + tp + '\n';\nif (ticket) msg += '<b>Ticket:</b> #' + ticket + '\n';\nmsg += '\n<i>' + new Date().toLocaleString('de-DE') + '</i>';\n\nreturn [{ json: {\n  ...d,\n  symbol: symbol,\n  price: price,\n  volume: volume,\n  sl: sl,\n  tp: tp,\n  ticket: ticket,\n  action: action,\n  status: status,\n  _ts: d._ts || new Date().toISOString(),\n  _message: msg\n}}];"
+        }
+      },
+      {
+        "id": "tg2",
+        "name": "Telegram Alert",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1,
+        "position": [
+          760,
+          220
+        ],
+        "credentials": {
+          "telegramApi": {
+            "id": "lwOSLP3ylq10yEW4",
+            "name": "MT4 Telegram Bot"
+          }
+        },
+        "parameters": {
+          "chatId": "7268021157",
+          "text": "={{ $json._message }}",
+          "additionalFields": {
+            "parse_mode": "HTML"
+          }
+        }
+      },
+      {
+        "id": "gs2",
+        "name": "Trade-Log schreiben",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4,
+        "position": [
+          760,
+          400
+        ],
+        "credentials": {
+          "googleApi": {
+            "id": "82cab318-1cf6-4071-a030-1535dfe88501",
+            "name": "Google Service Account Trading"
+          }
+        },
+        "parameters": {
+          "authentication": "serviceAccount",
+          "resource": "sheet",
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "value": "1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g",
+            "mode": "id"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "Trade-Log",
+            "mode": "name"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "Timestamp": "={{ $json._ts || new Date().toISOString() }}",
+              "Symbol": "={{ $json.symbol || 'UNKNOWN' }}",
+              "Signal": "={{ $json.action || 'SIGNAL' }}",
+              "Preis": "={{ $json.price || '' }}",
+              "Volume": "={{ $json.volume || '' }}",
+              "SL": "={{ $json.sl || '' }}",
+              "TP": "={{ $json.tp || '' }}",
+              "Ticket": "={{ $json.ticket || '' }}",
+              "Status": "={{ $json.status || 'PENDING' }}"
+            },
+            "matchingColumns": [],
+            "schema": []
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Webhook Signale": {
+        "main": [
+          [
+            {
+              "node": "Signal formatieren",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Signal formatieren": {
+        "main": [
+          [
+            {
+              "node": "Telegram Alert",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Trade-Log schreiben",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "saveManualExecutions": true,
+      "callerPolicy": "workflowsFromSameOwner",
+      "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": null,
+    "versionId": "a4915756-0563-4005-b5e7-e48fcf8fcdb8",
+    "activeVersionId": "a4915756-0563-4005-b5e7-e48fcf8fcdb8",
+    "versionCounter": 25,
+    "triggerCount": 1,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-02-14T12:04:08.285Z",
+        "createdAt": "2026-02-14T12:04:08.285Z",
+        "role": "workflow:owner",
+        "workflowId": "6DcFnzHicZOh0FxZ",
+        "projectId": "RRogy3kdR9t1oU1l",
+        "project": {
+          "updatedAt": "2026-02-14T08:02:18.171Z",
+          "createdAt": "2026-02-14T07:52:14.165Z",
+          "id": "RRogy3kdR9t1oU1l",
+          "name": "Ludwig Siebold <stephan@siebold.nrw>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "9ef6b59c-6a61-45c7-b60f-1017993073cd"
+        }
+      }
+    ]
+  }
+]
