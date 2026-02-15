@@ -130,6 +130,35 @@
       }
     },
     {
+      "id": "code7_sheet",
+      "name": "Format TA-Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 280],
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nreturn [{ json: {\n  timestamp: new Date().toLocaleString('de-DE', {timeZone: 'Europe/Berlin'}),\n  symbol: d.symbol || 'BTCUSD',\n  timeframe: 'M15',\n  rsi: Math.round(d.rsi * 10) / 10,\n  macd: '-',\n  macd_signal: '-',\n  ema20: Math.round(d.ema20 * 100) / 100,\n  ema50: Math.round(d.ema50 * 100) / 100,\n  atr: Math.round(d.atr * 100) / 100,\n  trend: d.emaTrend || 'UNKNOWN',\n  signal_score: d.confidence || 0,\n  current_bid: Math.round(d.currentBid * 100) / 100\n}}];"
+      }
+    },
+    {
+      "id": "gs7_talog",
+      "name": "TA-Log in Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2180, 180],
+      "credentials": {
+        "googleSheetsOAuth2": {
+          "id": "82cab318-1cf6-4071-a030-1535dfe88501",
+          "name": "Google Sheets (n8n-trading)"
+        }
+      },
+      "parameters": {
+        "spreadsheetId": "1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g",
+        "sheetName": "TA-Log",
+        "operation": "append",
+        "columns": "timestamp,symbol,timeframe,rsi,macd,macd_signal,ema20,ema50,atr,trend,signal_score,current_bid"
+      }
+    },
+    {
       "id": "if7",
       "name": "Signal vorhanden?",
       "type": "n8n-nodes-base.if",
@@ -247,6 +276,12 @@
       "main": [[{ "node": "Technische Analyse", "type": "main", "index": 0 }]]
     },
     "Technische Analyse": {
+      "main": [[{ "node": "Format TA-Log", "type": "main", "index": 0 }]]
+    },
+    "Format TA-Log": {
+      "main": [[{ "node": "TA-Log in Sheets", "type": "main", "index": 0 }]]
+    },
+    "TA-Log in Sheets": {
       "main": [[{ "node": "Signal vorhanden?", "type": "main", "index": 0 }]]
     },
     "Signal vorhanden?": {
