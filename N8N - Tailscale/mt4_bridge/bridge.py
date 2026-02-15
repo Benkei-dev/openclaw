@@ -10,6 +10,7 @@ Architektur:
   MT4 (PUB  :32770)  →  Bridge SUB   →  Buffer / Push to n8n
 """
 
+import ast
 import asyncio
 import json
 import logging
@@ -167,6 +168,14 @@ def _parse_message(raw: str) -> dict:
     except json.JSONDecodeError:
         pass
 
+    # Python-Dict-Format (DWX EA sendet single-quoted dicts wie {'_action': 'EXECUTION', ...})
+    try:
+        result = ast.literal_eval(raw)
+        if isinstance(result, dict):
+            return result
+    except (ValueError, SyntaxError):
+        pass
+
     # DWX PUB-Format: "SYMBOL:|:bid;ask"  oder  "SYMBOL_TF:|:ts;o;h;l;c;vol;spread;rvol"
     if ":|:" in raw:
         symbol_part, _, data_part = raw.partition(":|:")
@@ -255,9 +264,11 @@ def _build_dwx_command(payload: "CommandPayload") -> str:
         ot      = (payload.order_type or ("BUY" if action != "SELL" else "SELL")).upper()
         tp_code = _ot_map.get(ot, "0")
         magic   = str((payload.extra or {}).get("magic", 0))
+        # FIX: DWX v2.0.1_RC8 parameter order: TRADE;OPEN;type;symbol;price;sl;tp;comment;lots;magic;ticket
+        # WICHTIG: volume (lots) muss an Position 9 sein, nicht Position 6!
         return (f"TRADE;OPEN;{tp_code};{payload.symbol or ''};0;"
-                f"{payload.volume or 0.01};{payload.sl or 0};{payload.tp or 0};"
-                f"{payload.comment or ''};{magic};0")
+                f"0;0;{payload.comment or ''};"
+                f"{payload.volume or 0.01};{magic};0")
 
     if action == "CLOSE_TRADE":
         magic = str((payload.extra or {}).get("magic", 0))
@@ -473,6 +484,32 @@ async def get_stats(authorization: str | None = Header(default=None)):
     """Gibt detaillierte Statistiken zurück."""
     _check_auth(authorization)
     return stats
+
+
+class RawCommandPayload(BaseModel):
+    command: str
+
+
+@app.post("/mt4/raw", tags=["MT4"])
+async def send_raw_command(
+    payload: RawCommandPayload,
+    authorization: str | None = Header(default=None),
+):
+    """
+    Sendet einen Raw-String-Befehl direkt an MT4 (Debug-Endpoint).
+    Kein Format-Übersetzung – der String wird exakt so gesendet.
+    """
+    _check_auth(authorization)
+    if push_socket is None:
+        raise HTTPException(status_code=503, detail="ZMQ nicht verbunden")
+    try:
+        await push_socket.send_string(payload.command)
+        stats["commands_sent"] += 1
+        log.info("Raw-Befehl gesendet: %s", payload.command)
+        return {"status": "sent", "command": payload.command}
+    except Exception as exc:
+        log.error("Fehler beim Senden (raw): %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------
