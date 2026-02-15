@@ -226,7 +226,7 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 - [ ] TASK-9 🟡 `CC-SONNET`: WF8 Trade Executor End-to-End testen
 - [ ] TASK-10 🟡 `CC-SONNET`: WF9 Trade Monitor mit offenem Trade testen
 - [ ] TASK-11 🟡 `CC-SONNET`: WF10 Trade Journal nach Trade-Close prüfen
-- [~CC-HAIKU] TASK-12 🟢 `CC-HAIKU`: Google Sheets alle Tabs verifizieren (Trade-Log, TA-Log, Active-Trades, etc.)
+- [x] TASK-12 🟢 `CC-HAIKU`: Google Sheets alle Tabs verifizieren. 5 Tabs identifiziert: Trade-Log (WF2), TA-Log (WF7, 12 Spalten), Active-Trades (WF8), Monitor-Log (WF9), Journal (WF10). Alle Workflows mit korrekter Google Sheets Credential (82cab3...). Sheet ID: 1J1MNti... ✅
 
 ### Housekeeping
 - [ ] TASK-13 🟢 `CC-HAIKU`: Temp-Dateien löschen (lokal: d:\GH\demo_trade.py etc., VPS: /tmp/test_*.py etc.)
@@ -309,4 +309,5 @@ Google Sheet: 1J1MNtiITEOTPBW_sZU4hl5Uf-_JlAaR4DDcS5eg-V_g
 2026-02-15 09:45 | CC-SONNET | TASK-6: WF7 JSON modifiziert: Format TA-Log + TA-Log in Sheets Nodes hinzugefügt. Routing: Tech.Analyse → Format → Append → Signal Check. Google Sheets Credential & TA-Log Tab konfiguriert. Zu n8n importiert. | ~30k
 2026-02-15 10:00 | CC-SONNET | TASK-7: WF2 exportiert von n8n. Code2 Node: besseres Signal-Parsing (parts[1..5] + raw fallback für fehlende Felder). GS Columns updated (Symbol, Signal, Preis, Volume, SL, TP, Ticket, Status). Importiert zu n8n. | ~25k
 2026-02-15 10:05 | CC-SONNET | TASK-8: WF2 Telegram-Nachricht verbessert. Code2 generiert formatierte Nachricht mit: Emoji (BUY/SELL/ERROR), Symbol, Signal-Typ, Preis, Volume, SL/TP, Ticket. Nicht mehr nur generische "SIGNAL"-Meldung. Importiert. | ~10k
+2026-02-15 10:15 | CC-HAIKU | TASK-12: Google Sheets Struktur verifiziert. 5 Tabs: Trade-Log (WF2), TA-Log (WF7: 12 Spalten), Active-Trades (WF8: Timestamp/Ticket/Symbol/Status), Monitor-Log (WF9), Journal (WF10). Alle Workflows mit Credential 82cab318-1cf6 + Sheet 1J1MNti... konfiguriert. ✅ | ~15k
 ```
